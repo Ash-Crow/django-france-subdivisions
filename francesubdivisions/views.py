@@ -11,6 +11,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework import filters
+from unidecode import unidecode
 
 
 @api_view(["GET"])
@@ -29,11 +30,49 @@ def api_root(request, format=None):
 
 
 @api_view(["GET"])
-def SearchAll(request):
+def SearchAll(query):
     """
     Search within all categories
     """
-    pass
+    # Initiate the lists
+    communes_raw = []
+    epcis_raw = []
+    departements_raw = []
+    regions_raw = []
+    response = []
+
+    query = unidecode(query).lower()
+
+    if len(query) < 3:
+        shortnamed_communes = [
+            "by",
+            "bu",
+            "eu",
+            "gy",
+            "oz",
+            "oo",
+            "py",
+            "ri",
+            "ry",
+            "sy",
+            "ur",
+            "us",
+            "uz",
+            "y",
+        ]
+        if query in shortnamed_communes:
+            communes_raw = Commune.objects.filter(name__unaccent__iexact=query)
+        else:
+            communes_raw = Commune.objects.filter(name__istartswith=query).count()
+
+    if len(communes_raw):
+        communes = []
+        for c in communes_raw:
+            communes.append({"value": c.siren, "text": f"{c.name} ({c.insee})"})
+
+        response.append({groupname: "Communes", items: communes})
+
+    return Response({response})
 
 
 class RegionList(generics.ListCreateAPIView):
