@@ -3,8 +3,8 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from francesubdivisions import views
 
 urlpatterns = [
-    path("all/<str:query>", views.SearchAll(), name="search-all"),
-    path("regions/", views.RegionList.as_view, name="region-list"),
+    path("all/<str:query>", views.SearchAll, name="search-all"),
+    path("regions/", views.RegionList.as_view(), name="region-list"),
     path("regions/<int:pk>/", views.RegionDetail.as_view(), name="region-detail"),
     path("departements/", views.DepartementList.as_view(), name="departement-list"),
     path(

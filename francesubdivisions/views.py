@@ -30,7 +30,7 @@ def api_root(request, format=None):
 
 
 @api_view(["GET"])
-def SearchAll(query):
+def SearchAll(request, query):
     """
     Search within all categories
     """
@@ -62,17 +62,17 @@ def SearchAll(query):
         ]
         if query in shortnamed_communes:
             communes_raw = Commune.objects.filter(name__unaccent__iexact=query)
-        else:
-            communes_raw = Commune.objects.filter(name__istartswith=query).count()
+    else:
+        communes_raw = Commune.objects.filter(name__unaccent__istartswith=query)
 
     if len(communes_raw):
         communes = []
         for c in communes_raw:
             communes.append({"value": c.siren, "text": f"{c.name} ({c.insee})"})
 
-        response.append({groupname: "Communes", items: communes})
+        response.append({"groupName": "Communes", "items": communes})
 
-    return Response({response})
+    return Response(response)
 
 
 class RegionList(generics.ListCreateAPIView):
