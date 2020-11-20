@@ -63,7 +63,31 @@ def SearchAll(request, query):
         if query in shortnamed_communes:
             communes_raw = Commune.objects.filter(name__unaccent__iexact=query)
     else:
+        regions_raw = Region.objects.filter(name__unaccent__istartswith=query)
+        departements_raw = Departement.objects.filter(name__unaccent__istartswith=query)
+        epcis_raw = Epci.objects.filter(name__unaccent__istartswith=query)
         communes_raw = Commune.objects.filter(name__unaccent__istartswith=query)
+
+    if len(regions_raw):
+        regions = []
+        for r in regions_raw:
+            regions.append({"value": r.siren, "text": r.name})
+
+        response.append({"groupName": "Régions", "items": regions})
+
+    if len(departements_raw):
+        departements = []
+        for d in departements_raw:
+            departements.append({"value": d.siren, "text": d.name})
+
+        response.append({"groupName": "Départements", "items": departements})
+
+    if len(epcis_raw):
+        epcis = []
+        for e in epcis_raw:
+            epcis.append({"value": e.siren, "text": e.name})
+
+        response.append({"groupName": "Intercommunalités", "items": epcis})
 
     if len(communes_raw):
         communes = []
