@@ -7,6 +7,7 @@ class CommuneAdmin(admin.ModelAdmin):
     search_fields = ("name", "insee", "siren")
 
 
+admin.site.register(models.Metadata)
 admin.site.register(models.Region)
 admin.site.register(models.Departement)
 admin.site.register(models.EpciType)
