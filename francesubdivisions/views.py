@@ -65,7 +65,7 @@ def SearchAll(request, query):
     else:
         regions_raw = Region.objects.filter(name__unaccent__istartswith=query)
         departements_raw = Departement.objects.filter(name__unaccent__istartswith=query)
-        epcis_raw = Epci.objects.filter(name__unaccent__istartswith=query)
+        epcis_raw = Epci.objects.filter(name__unaccent__icontains=query)
         communes_raw = Commune.objects.filter(name__unaccent__istartswith=query)
 
     if len(regions_raw):
