@@ -19,6 +19,16 @@ def validate_siren(value):
 
 
 # Models
+class Metadata(models.Model):
+    """
+    The metadata, as property (prop)/value couples
+    """
+
+    created = models.DateTimeField(auto_now_add=True)
+    prop = models.CharField(max_length=100)
+    value = models.CharField(max_length=255)
+
+
 class Region(models.Model):
     """
     A French région
