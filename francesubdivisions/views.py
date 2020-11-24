@@ -1,4 +1,4 @@
-from francesubdivisions.models import Region, Departement, Epci, Commune
+from francesubdivisions.models import Metadata, Region, Departement, Epci, Commune
 from francesubdivisions.serializers import (
     RegionSerializer,
     DepartementSerializer,
@@ -41,6 +41,12 @@ def SearchAll(request, query):
     regions_raw = []
     response = []
 
+    # year filter
+    regions_year = int(Metadata.objects.get(prop="regions_latest").value)
+    departements_year = int(Metadata.objects.get(prop="departements_latest").value)
+    epcis_year = int(Metadata.objects.get(prop="epcis_latest").value)
+    communes_year = int(Metadata.objects.get(prop="communes_latest").value)
+
     query = unidecode(query).lower()
 
     if len(query) < 3:
@@ -61,12 +67,26 @@ def SearchAll(request, query):
             "y",
         ]
         if query in shortnamed_communes:
-            communes_raw = Commune.objects.filter(name__unaccent__iexact=query)
+            communes_raw = Commune.objects.filter(
+                name__unaccent__iexact=query, year__exact=communes_year
+            )
     else:
-        regions_raw = Region.objects.filter(name__unaccent__istartswith=query)
-        departements_raw = Departement.objects.filter(name__unaccent__istartswith=query)
-        epcis_raw = Epci.objects.filter(name__unaccent__icontains=query)
-        communes_raw = Commune.objects.filter(name__unaccent__istartswith=query)
+        regions_raw = Region.objects.filter(
+            name__unaccent__istartswith=query, year__exact=regions_year
+        ).exclude(
+            siren__exact=""
+        )  # Exclude Mayotte that has no region-level Siren
+        departements_raw = Departement.objects.filter(
+            name__unaccent__istartswith=query, year__exact=departements_year
+        ).exclude(
+            siren__exact=""
+        )  # Exclude Haute-Corse, Corse-du-Sud, Martinique and Guyane that have no departement-level Siren
+        epcis_raw = Epci.objects.filter(
+            name__unaccent__icontains=query, year__exact=epcis_year
+        )
+        communes_raw = Commune.objects.filter(
+            name__unaccent__istartswith=query, year__exact=communes_year
+        )
 
     if len(regions_raw):
         regions = []
@@ -111,6 +131,7 @@ class RegionDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Region.objects.all()
     serializer_class = RegionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "siren"
 
 
 class DepartementList(generics.ListCreateAPIView):
@@ -125,6 +146,7 @@ class DepartementDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Departement.objects.all()
     serializer_class = DepartementSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "siren"
 
 
 class EpciList(generics.ListCreateAPIView):
@@ -139,6 +161,7 @@ class EpciDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Epci.objects.all()
     serializer_class = EpciSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "siren"
 
 
 class CommuneList(generics.ListCreateAPIView):
@@ -154,3 +177,4 @@ class CommuneDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Commune.objects.all()
     serializer_class = CommuneSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "siren"

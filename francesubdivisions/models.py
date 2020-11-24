@@ -28,6 +28,9 @@ class Metadata(models.Model):
     prop = models.CharField(max_length=100)
     value = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f"{self.prop}: {self.value}"
+
 
 class Region(models.Model):
     """
