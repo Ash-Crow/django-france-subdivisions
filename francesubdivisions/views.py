@@ -38,7 +38,7 @@ def api_root(request, format=None):
 
 
 @api_view(["GET"])
-def SearchAll(request, *kwargs):
+def SearchAll(request, query):
     """
     Search within all categories
     """
