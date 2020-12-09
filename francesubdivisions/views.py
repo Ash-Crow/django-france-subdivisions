@@ -1,8 +1,16 @@
-from francesubdivisions.models import Metadata, Region, Departement, Epci, Commune
+from francesubdivisions.models import (
+    Metadata,
+    Region,
+    Departement,
+    Epci,
+    EpciType,
+    Commune,
+)
 from francesubdivisions.serializers import (
     RegionSerializer,
     DepartementSerializer,
     EpciSerializer,
+    EpciTypeSerializer,
     CommuneSerializer,
 )
 from rest_framework import generics
@@ -30,7 +38,7 @@ def api_root(request, format=None):
 
 
 @api_view(["GET"])
-def SearchAll(request, query):
+def SearchAll(request, *kwargs):
     """
     Search within all categories
     """
@@ -91,28 +99,38 @@ def SearchAll(request, query):
     if len(regions_raw):
         regions = []
         for r in regions_raw:
-            regions.append({"value": r.siren, "text": r.name})
+            regions.append({"value": r.siren, "text": r.name, "type": "region"})
 
         response.append({"groupName": "Régions", "items": regions})
 
     if len(departements_raw):
         departements = []
         for d in departements_raw:
-            departements.append({"value": d.siren, "text": d.name})
+            departements.append(
+                {"value": d.siren, "text": d.name, "type": "departement"}
+            )
 
         response.append({"groupName": "Départements", "items": departements})
 
     if len(epcis_raw):
         epcis = []
         for e in epcis_raw:
-            epcis.append({"value": e.siren, "text": e.name})
+            epcis.append({"value": e.siren, "text": e.name, "type": "epci"})
 
         response.append({"groupName": "Intercommunalités", "items": epcis})
 
     if len(communes_raw):
         communes = []
         for c in communes_raw:
-            communes.append({"value": c.siren, "text": f"{c.name} ({c.insee})"})
+            communes.append(
+                {
+                    "value": c.siren,
+                    "text": f"{c.name} ({c.insee})",
+                    "name": c.name,
+                    "insee": c.insee,
+                    "type": "commune",
+                }
+            )
 
         response.append({"groupName": "Communes", "items": communes})
 
@@ -131,6 +149,13 @@ class RegionDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Region.objects.all()
     serializer_class = RegionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "pk"
+
+
+class RegionDetailSiren(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Region.objects.all()
+    serializer_class = RegionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     lookup_field = "siren"
 
 
@@ -143,6 +168,13 @@ class DepartementList(generics.ListCreateAPIView):
 
 
 class DepartementDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Departement.objects.all()
+    serializer_class = DepartementSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "pk"
+
+
+class DepartementDetailSiren(generics.RetrieveUpdateDestroyAPIView):
     queryset = Departement.objects.all()
     serializer_class = DepartementSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -161,7 +193,27 @@ class EpciDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Epci.objects.all()
     serializer_class = EpciSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+
+class EpciDetailSiren(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Epci.objects.all()
+    serializer_class = EpciSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     lookup_field = "siren"
+
+
+class EpciTypeList(generics.ListCreateAPIView):
+    queryset = EpciType.objects.all()
+    serializer_class = EpciTypeSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"], ["acronym"]
+
+
+class EpciTypeDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = EpciType.objects.all()
+    serializer_class = EpciTypeSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
 
 class CommuneList(generics.ListCreateAPIView):
@@ -177,4 +229,17 @@ class CommuneDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Commune.objects.all()
     serializer_class = CommuneSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+
+class CommuneDetailSiren(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Commune.objects.all()
+    serializer_class = CommuneSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     lookup_field = "siren"
+
+
+class CommuneDetailInsee(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Commune.objects.all()
+    serializer_class = CommuneSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    lookup_field = "insee"
