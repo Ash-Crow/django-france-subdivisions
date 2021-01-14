@@ -3,21 +3,30 @@
 
 from django.core.management.base import BaseCommand
 from django.core.exceptions import ValidationError
-from francesubdivisions.models import Commune, Departement, Region
+from francesubdivisions.models import Commune, Departement, Region, DataYear, Metadata
 from francesubdivisions.models import validate_insee_commune
 import csv
 from os import path
 from pprint import pprint
 import re
+import requests
+from zipfile import ZipFile
+from io import BytesIO, TextIOWrapper
+
 
 """
-Ce script utilise l'archive "Ensemble" au format CSV telle que trouvée sur 
-https://www.insee.fr/fr/information/2560452 :
+Ce script récupère les données de
+https://www.data.gouv.fr/fr/datasets/code-officiel-geographique-cog/
+pour les régions, départements et communes à partir de 2019
 
-- Choisir le millésime concerné et cliquer sur "Téléchargement des fichiers"
-- Télécharger le fichier "Ensemble des fichiers <année> (csv)"
-- le décompresser en tant que sous-répertoire d'un répertoire "resources" placé à la racine de Django
+D'après https://www.insee.fr/fr/information/2560452:
+"Depuis le millésime 2019, les fichiers ont sensiblement évolué 
+dans leur format et leur structure."
 """
+
+API_BASE = "https://www.data.gouv.fr/api/1/"
+COG_ID = "58c984b088ee386cdb1261f3"
+COG_MIN_YEAR = 2019
 
 
 class Command(BaseCommand):
@@ -25,13 +34,13 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "input_folder", nargs=1, type=str, help="The folder with the COG files"
-        )
-        parser.add_argument(
             "--level",
             type=str,
             help="If specified, only the current level will be parsed. \
                 Caution: the script expects the previous levels to be already parsed",
+        )
+        parser.add_argument(
+            "--year", type=int, help="If specified, only that year will be parsed"
         )
 
     def handle(self, *args, **options):
@@ -42,79 +51,210 @@ class Command(BaseCommand):
             level = None
             all_levels = True
 
-        input_folder = options["input_folder"][0]
-        input_path = path.join("resources", input_folder)
-        year = int(re.findall(r"\d{4}", input_folder)[0])
+        if options["year"]:
+            year = int(options["year"])
+        else:
+            year = 0
 
         # Now going down from higher level: Régions, Départements, Communes
 
         # Régions
         if all_levels or level == "regions":
-            regions_fullpath = path.join(input_path, f"region{year}.csv")
-            regions = parse_file(regions_fullpath, "reg")
+            # First, the data from the COG
+            region_regex = re.compile(r"Millésime (?P<year>\d{4})\s: Liste des régions")
+            region_files = get_datagouv_file(COG_ID, region_regex, COG_MIN_YEAR)
+
+            if not year:
+                year = max(region_files)
+            year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+
+            import_region_file = region_files[year]
+
+            regions = parse_csv_from_distant_zip(
+                import_region_file["url"],
+                f"region{year}.csv",
+                "reg",
+            )
 
             for r in regions:
                 entry, return_code = Region.objects.get_or_create(
-                    name=r["name"], insee=r["insee"], year=year
+                    name=r["name"], insee=r["insee"]
                 )
+                entry.save()
+                entry.years.add(year_entry)
+
                 if return_code:
                     print(f"Région {entry} created.")
                 else:
                     print(f"Région {entry} already in database, skipped.")
 
+            md_entry, md_return_code = Metadata.objects.get_or_create(
+                prop="cog_regions_year", value=year
+            )
+
+            # Then the SIRENs from a local file
+            regions_list = path.join(
+                "francesubdivisions", "resources", "regions-siren.csv"
+            )
+            add_sirens_and_categories(regions_list, Region, year_entry)
+
         # Départements
         if all_levels or level == "departements":
-            depts_fullpath = path.join(input_path, f"departement{year}.csv")
-            depts = parse_file(depts_fullpath, "dep", "reg")
+            # First, the data from the COG
+            depts_regex = re.compile(
+                r"Millésime (?P<year>\d{4})\s: Liste des départements"
+            )
+            depts_files = get_datagouv_file(COG_ID, depts_regex, COG_MIN_YEAR)
+
+            if not year:
+                year = max(dept_files)
+            year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+
+            import_dept_file = depts_files[year]
+
+            depts = parse_csv_from_distant_zip(
+                import_dept_file["url"],
+                f"departement{year}.csv",
+                "dep",
+                "reg",
+            )
 
             for d in depts:
-                region = Region.objects.get(year=year, insee=d["higher"])
+                region = Region.objects.get(years=year_entry, insee=d["higher"])
 
                 entry, return_code = Departement.objects.get_or_create(
-                    name=d["name"], insee=d["insee"], year=year, region=region
+                    name=d["name"], insee=d["insee"], region=region
                 )
+                entry.save()
+                entry.years.add(year_entry)
+
                 if return_code:
                     print(f"Département {entry} created.")
                 else:
                     print(f"Département {entry} already in database, skipped.")
 
+            md_entry, md_return_code = Metadata.objects.get_or_create(
+                prop="cog_depts_year", value=year
+            )
+
+            # Then the SIRENs from a local file
+            depts_list = path.join(
+                "francesubdivisions", "resources", "departements-siren.csv"
+            )
+            add_sirens_and_categories(depts_list, Departement, year_entry)
+
         # Communes
         if all_levels or level == "communes":
-            communes_fullpath = path.join(input_path, f"communes{year}.csv")
-            communes = parse_file(communes_fullpath, "com", "dep", ("typecom", "COM"))
+            communes_regex = re.compile(
+                r"^Millésime (?P<year>\d{4})\s: Liste des communes"
+            )
+            communes_files = get_datagouv_file(COG_ID, communes_regex, COG_MIN_YEAR)
+
+            if not year:
+                year = max(communes_files)
+            year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+
+            import_communes_file = communes_files[year]
+
+            if year == 2019:
+                csv_filename = "communes-01012019.csv"
+            else:
+                csv_filename = f"communes{year}.csv"
+
+            communes = parse_csv_from_distant_zip(
+                import_communes_file["url"],
+                csv_filename,
+                "com",
+                "dep",
+                ("typecom", "COM"),
+            )
 
             for c in communes:
-                dept = Departement.objects.get(year=year, insee=c["higher"])
+                dept = Departement.objects.get(years=year_entry, insee=c["higher"])
                 entry, return_code = Commune.objects.get_or_create(
-                    name=c["name"], insee=c["insee"], year=year, departement=dept
+                    name=c["name"], insee=c["insee"], departement=dept
                 )
+
+                entry.save()
+                entry.years.add(year_entry)
+
                 if return_code:
                     print(f"Commune {entry} created.")
                 else:
                     print(f"Commune {entry} already in database, skipped.")
 
+            md_entry, md_return_code = Metadata.objects.get_or_create(
+                prop="cog_communes_year", value=year
+            )
 
-def parse_file(input_file, insee_col, higher_col="", typecheck=False):
+
+def get_datagouv_file(dataset_id, title_regex, min_year=0):
     """
-    Parses one of the files from the COG.
-    insee_col: the column with the relevant insee id for the current level
-    higher_col: the column with the insee id of the immediate upper level (ex: département for commune)
+    dataset_id: the id of the dataset
+    title_regex: the regex to find the searched file title
+    min_year: if the formatting of the file changed over time, the first managed year
     """
+    dataset_url = f"{API_BASE}datasets/{dataset_id}/"
+
+    response = requests.get(dataset_url).json()
+
+    matching_files = {}
+    for r in response["resources"]:
+        m = title_regex.match(r["title"])
+        if m:
+            year = int(m.group("year"))
+            if min_year and year >= min_year:
+                matching_files[year] = {
+                    "title": r["title"],
+                    "url": r["url"],
+                    "year": year,
+                }
+
+    return matching_files
+
+
+def parse_csv_from_distant_zip(
+    zip_url, csv_name, insee_col, higher_col="", typecheck=False
+):
+    print(f"🗜️   Parsing archive {zip_url}")
+    zip_name = requests.get(zip_url).content
+    with ZipFile(BytesIO(zip_name)) as zip_file:
+        with zip_file.open(csv_name) as csv_file:
+            reader = csv.DictReader(TextIOWrapper(csv_file, encoding="utf-8-sig"))
+            entries = []
+            if typecheck:
+                tc_col = typecheck[0]
+                tc_val = typecheck[1]
+
+            for row in reader:
+                if typecheck:
+                    if row[tc_col] != tc_val:
+                        continue
+                entry = {}
+                entry["insee"] = row[insee_col]
+                if higher_col:
+                    entry["higher"] = row[higher_col]
+                entry["name"] = row["libelle"]
+                entries.append(entry)
+            return entries
+
+
+def add_sirens_and_categories(input_file, model_name, year_entry):
     with open(input_file, "r") as input_csv:
         reader = csv.DictReader(input_csv)
-        entries = []
-        if typecheck:
-            tc_col = typecheck[0]
-            tc_val = typecheck[1]
-
         for row in reader:
-            if typecheck:
-                if row[tc_col] != tc_val:
-                    continue
-            entry = {}
-            entry["insee"] = row[insee_col]
-            if higher_col:
-                entry["higher"] = row[higher_col]
-            entry["name"] = row["libelle"]
-            entries.append(entry)
-        return entries
+            insee = row["Insee"]
+            siren = row["Siren"]
+            category = row["CATEG"]
+
+            if category != "ML":
+                # The Métropole de Lyon is managed only at the EPCI level
+                try:
+                    collectivity_entry = model_name.objects.get(
+                        insee=insee, years=year_entry
+                    )
+                    collectivity_entry.siren = siren
+                    collectivity_entry.category = category
+                    collectivity_entry.save()
+                except:
+                    print(f"{model_name} {insee} not found")

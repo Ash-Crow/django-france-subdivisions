@@ -32,16 +32,33 @@ class Metadata(models.Model):
         return f"{self.prop}: {self.value}"
 
 
+class DataYear(models.Model):
+    """
+    The years for which we have data stored
+    """
+
+    created = models.DateTimeField(auto_now_add=True)
+    year = models.PositiveSmallIntegerField()
+
+    def __str__(self):
+        return f"{self.year}"
+
+
 class Region(models.Model):
     """
     A French région
     """
 
+    class RegionCategory(models.TextChoices):
+        REG = "REG", "Région"
+        CTU = "CTU", "Collectivité territoriale unique"
+
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
-    year = models.IntegerField()
+    years = models.ManyToManyField(DataYear)
     insee = models.CharField(max_length=2)
     siren = models.CharField(max_length=9)
+    category = models.CharField(max_length=3, choices=RegionCategory.choices, null=True)
 
     def __str__(self):
         return self.name
@@ -52,12 +69,20 @@ class Departement(models.Model):
     A French département
     """
 
+    class DepartementCategory(models.TextChoices):
+        DEPT = "DEPT", "Département"
+        PARIS = "PARIS", "Paris"
+        ML = "ML", "Métropole de Lyon"
+
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
-    year = models.IntegerField()
+    years = models.ManyToManyField(DataYear)
     region = models.ForeignKey("Region", on_delete=models.CASCADE)
     insee = models.CharField(max_length=3)
     siren = models.CharField(max_length=9)
+    category = models.CharField(
+        max_length=5, choices=DepartementCategory.choices, null=True
+    )
 
     def __str__(self):
         return f"{self.insee} - {self.name}"
@@ -80,7 +105,7 @@ class Epci(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
-    year = models.IntegerField()
+    years = models.ManyToManyField(DataYear)
     insee = models.CharField(max_length=2)
     epci_type = models.ForeignKey("EpciType", null=True, on_delete=models.CASCADE)
     siren = models.CharField(max_length=9)
@@ -96,7 +121,7 @@ class Commune(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
-    year = models.IntegerField()
+    years = models.ManyToManyField(DataYear)
     departement = models.ForeignKey("Departement", on_delete=models.CASCADE)
     epci = models.ForeignKey("Epci", on_delete=models.CASCADE, null=True)
     insee = models.CharField(max_length=5)

@@ -8,6 +8,7 @@ class CommuneAdmin(admin.ModelAdmin):
 
 
 admin.site.register(models.Metadata)
+admin.site.register(models.DataYear)
 admin.site.register(models.Region)
 admin.site.register(models.Departement)
 admin.site.register(models.EpciType)
