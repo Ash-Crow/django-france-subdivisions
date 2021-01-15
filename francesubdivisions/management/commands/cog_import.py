@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from django.core.exceptions import ValidationError
 from francesubdivisions.models import Commune, Departement, Region, DataYear, Metadata
 from francesubdivisions.models import validate_insee_commune
+from francesubdivisions.utils.datagouv import get_datagouv_file
 import csv
 from os import path
 from pprint import pprint
@@ -24,7 +25,6 @@ D'après https://www.insee.fr/fr/information/2560452:
 dans leur format et leur structure."
 """
 
-API_BASE = "https://www.data.gouv.fr/api/1/"
 COG_ID = "58c984b088ee386cdb1261f3"
 COG_MIN_YEAR = 2019
 
@@ -186,31 +186,6 @@ class Command(BaseCommand):
             md_entry, md_return_code = Metadata.objects.get_or_create(
                 prop="cog_communes_year", value=year
             )
-
-
-def get_datagouv_file(dataset_id, title_regex, min_year=0):
-    """
-    dataset_id: the id of the dataset
-    title_regex: the regex to find the searched file title
-    min_year: if the formatting of the file changed over time, the first managed year
-    """
-    dataset_url = f"{API_BASE}datasets/{dataset_id}/"
-
-    response = requests.get(dataset_url).json()
-
-    matching_files = {}
-    for r in response["resources"]:
-        m = title_regex.match(r["title"])
-        if m:
-            year = int(m.group("year"))
-            if min_year and year >= min_year:
-                matching_files[year] = {
-                    "title": r["title"],
-                    "url": r["url"],
-                    "year": year,
-                }
-
-    return matching_files
 
 
 def parse_csv_from_distant_zip(
