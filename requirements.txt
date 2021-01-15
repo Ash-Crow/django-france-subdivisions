@@ -3,4 +3,3 @@ djangorestframework
 python-stdnum
 Unidecode
 openpyxl-dictreader
-~                                                                                            
