@@ -104,7 +104,6 @@ class Epci(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
     years = models.ManyToManyField(DataYear)
-    insee = models.CharField(max_length=2)
     epci_type = models.CharField(max_length=5, null=True, choices=EpciType.choices)
     siren = models.CharField(max_length=9)
 
