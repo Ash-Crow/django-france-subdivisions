@@ -4,12 +4,14 @@ from francesubdivisions.models import (
     Departement,
     Epci,
     Commune,
+    DataYear,
 )
 from francesubdivisions.serializers import (
     RegionSerializer,
     DepartementSerializer,
     EpciSerializer,
     CommuneSerializer,
+    DataYearSerializer,
 )
 from rest_framework import generics
 from rest_framework import permissions
@@ -227,3 +229,17 @@ class CommuneDetailInsee(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CommuneSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     lookup_field = "insee"
+
+
+class DataYearList(generics.ListCreateAPIView):
+    queryset = DataYear.objects.all()
+    serializer_class = DataYearSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"], ["acronym"]
+
+
+class DataYearDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = DataYear.objects.all()
+    serializer_class = DataYearSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]

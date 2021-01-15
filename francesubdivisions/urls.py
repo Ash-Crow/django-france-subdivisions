@@ -41,6 +41,8 @@ urlpatterns = [
         views.CommuneDetailInsee.as_view(),
         name="commune-detail-insee",
     ),
+    path("datayear/", views.DataYearList.as_view(), name="datayear-list"),
+    path("datayear/<int:pk>/", views.DataYearDetail.as_view(), name="datayear-detail"),
     path("", views.api_root),
 ]
 
