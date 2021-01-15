@@ -2,12 +2,17 @@
 # -*- coding: utf-8 -*-
 
 from django.core.management.base import BaseCommand
-from francesubdivisions.models import Epci, EpciType, Commune
-import csv
-from os import path
-from pprint import pprint
+from francesubdivisions.models import Epci, Commune, DataYear
+from francesubdivisions.utils.datagouv import get_datagouv_file
 
-YEAR = 2020
+import csv
+import re
+import requests
+from zipfile import ZipFile
+from io import BytesIO, StringIO
+import openpyxl_dictreader
+
+BANATIC_ID = "5e1f20058b4c414d3f94460d"
 
 """
 Import de divers fichiers pour récupérer les données extraites de Banatic
@@ -22,61 +27,114 @@ et doit donc être appelé après cog_import.py
 
 
 class Command(BaseCommand):
+    help = "Import data from Banatic"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--level",
+            type=str,
+            help="If specified, only the current level will be parsed. \
+                Caution: the script expects the previous levels to be already parsed",
+            choices=["communes", "epci"],
+        )
+        parser.add_argument(
+            "--year", type=int, help="If specified, only that year will be parsed"
+        )
+
     def handle(self, *args, **options):
+        if options["level"]:
+            level = options["level"]
+            all_levels = False
+        else:
+            level = None
+            all_levels = True
 
-        # Creation of the EPCI types if not already done
-        """
-        epci_types = [
-            {"acronym": "CA", "name": "Communauté d'agglomération"},
-            {"acronym": "CC", "name": "Communauté de communes"},
-            {"acronym": "CU", "name": "Communauté urbaine"},
-            {"acronym": "MET69", "name": "Métropole de Lyon"},
-            {"acronym": "METRO", "name": "Métropole"},
-        ]
+        if options["year"]:
+            year = int(options["year"])
+        else:
+            year = 0
 
-        for et in epci_types:
-            entry, return_code = EpciType.objects.get_or_create(
-                acronym=et["acronym"], name=et["name"]
-            )
-        #"""
+        # Now adding the Siren <-> Insee table for Communes first, then the epci and EPCI <=> communes relations
 
         # Import of the Siren <-> Insee table for Communes
         # That file also has population data
-        """
-        siren_insee_table = path.join("resources", "Banatic_SirenInsee2020.csv")
-        with open(siren_insee_table, "r") as input_csv:
-            reader = csv.DictReader(input_csv)
-            for row in reader:
-                name = row["nom_com"]
-                insee = row["insee"]
-                try:
-                    commune = Commune.objects.get(year=YEAR, insee=insee)
-                    if commune.name != name:
-                        print(
-                            f"Commune name {name} ({insee}) doesn't match with database entry {commune}"
-                        )
-                    commune.siren = row["siren"]
-                    commune.population = row["ptot_2020"]
-                    commune.save()
-                except:
-                    raise ValueError(f"Commune {name} ({insee}) not found")
-        #"""
+        if all_levels or level == "communes":
+            zip_url = "https://www.banatic.interieur.gouv.fr/V5/ressources/documents/document_reference/TableCorrespondanceSirenInsee.zip"
+            print(f"🗜️   Parsing archive {zip_url}")
 
-        # Import of the EPCI and member communes
-        epci_member_list = path.join("resources", "perimetre_epci_france.csv")
-        with open(epci_member_list, "r") as input_csv:
-            reader = csv.DictReader(input_csv)
+            zip_name = requests.get(zip_url).content
+
+            with ZipFile(BytesIO(zip_name)) as zip_file:
+                files_in_zip = zip_file.namelist()
+                annual_files = {}
+                title_regex = re.compile(r"Banatic_SirenInsee(?P<year>\d{4})\.xlsx")
+
+                for f in files_in_zip:
+                    m = title_regex.match(f)
+                    if m:
+                        year = int(m.group("year"))
+                        if year >= 2014:
+                            annual_files[year] = f
+
+                if not year:
+                    year = max(annual_files)
+                year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+
+                with zip_file.open(annual_files[year]) as xlsx_file:
+                    reader = openpyxl_dictreader.DictReader(xlsx_file, "insee_siren")
+                    for row in reader:
+                        name = row["nom_com"]
+                        insee = row["insee"]
+                        try:
+                            commune = Commune.objects.get(years=year_entry, insee=insee)
+                            if commune.name != name:
+                                print(
+                                    f"Commune name {name} ({insee}) doesn't match with database entry {commune}"
+                                )
+                            commune.siren = row["siren"]
+                            commune.population = row["ptot_2020"]
+                            commune.save()
+                        except:
+                            raise ValueError(f"Commune {name} ({insee}) not found")
+
+        if all_levels or level == "epci":
+            epci_regex = re.compile(
+                r"Périmètre des EPCI à fiscalité propre - année (?P<year>\d{4})"
+            )
+            epci_files = get_datagouv_file(BANATIC_ID, epci_regex)
+
+            if not year:
+                year = 2020
+            year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+
+            epci_filename = epci_files[year]["url"]
+
+            print(f"🧮   Parsing spreadsheet {epci_filename}")
+
+            # Despite its .xls extension, it is actually a tsv.
+            tsv_bytes = requests.get(epci_filename).content
+
+            str_file = StringIO(tsv_bytes.decode("cp1252"), newline="\n")
+
+            reader = csv.DictReader(str_file, delimiter="\t")
             for row in reader:
                 epci_name = row["Nom du groupement"]
-                epci_type = EpciType.objects.get(acronym=row["Nature juridique"])
+                epci_type = row["Nature juridique"]
                 epci_siren = row["N° SIREN"]
 
                 member_siren = row["Siren membre"]
-                member_commune = Commune.objects.get(siren=member_siren, year=YEAR)
+                member_commune = Commune.objects.get(
+                    siren=member_siren, years=year_entry
+                )
 
                 epci_entry, return_code = Epci.objects.get_or_create(
-                    name=epci_name, epci_type=epci_type, siren=epci_siren, year=YEAR
+                    name=epci_name,
+                    epci_type=epci_type,
+                    siren=epci_siren,
                 )
+
+                epci_entry.save()
+                epci_entry.years.add(year_entry)
 
                 member_commune.epci = epci_entry
                 member_commune.save()

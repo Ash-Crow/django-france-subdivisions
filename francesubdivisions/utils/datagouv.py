@@ -19,7 +19,7 @@ def get_datagouv_file(dataset_id, title_regex, min_year=0):
         m = title_regex.match(r["title"])
         if m:
             year = int(m.group("year"))
-            if min_year and year >= min_year:
+            if year >= min_year:
                 matching_files[year] = {
                     "title": r["title"],
                     "url": r["url"],
