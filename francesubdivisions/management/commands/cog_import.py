@@ -38,6 +38,7 @@ class Command(BaseCommand):
             type=str,
             help="If specified, only the current level will be parsed. \
                 Caution: the script expects the previous levels to be already parsed",
+            choices=["regions", "departements", "communes"],
         )
         parser.add_argument(
             "--year", type=int, help="If specified, only that year will be parsed"
