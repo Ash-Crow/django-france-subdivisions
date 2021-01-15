@@ -29,8 +29,6 @@ urlpatterns = [
         views.EpciDetailSiren.as_view(),
         name="epci-detail-siren",
     ),
-    path("epci/type/", views.EpciTypeList.as_view(), name="epcitype-list"),
-    path("epci/type/<int:pk>/", views.EpciTypeDetail.as_view(), name="epcitype-detail"),
     path("communes/", views.CommuneList.as_view(), name="commune-list"),
     path("communes/<int:pk>/", views.CommuneDetail.as_view(), name="commune-detail"),
     path(

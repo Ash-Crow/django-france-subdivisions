@@ -88,26 +88,24 @@ class Departement(models.Model):
         return f"{self.insee} - {self.name}"
 
 
-class EpciType(models.Model):
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100)
-    acronym = models.CharField(max_length=10)
-
-    def __str__(self):
-        return f"{self.name} ({self.acronym})"
-
-
 class Epci(models.Model):
     """
     A French établissement public de coopération intercommunale
     à fiscalité propre
     """
 
+    class EpciType(models.TextChoices):
+        CA = "CA", "Communauté d’agglomération"
+        CC = "CC", "Communauté de communes"
+        CU = "CU", "Communauté urbaine"
+        MET69 = "MET69", "Métropole de Lyon"
+        METRO = "METRO", "Métropole"
+
     created = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=100)
     years = models.ManyToManyField(DataYear)
     insee = models.CharField(max_length=2)
-    epci_type = models.ForeignKey("EpciType", null=True, on_delete=models.CASCADE)
+    epci_type = models.CharField(max_length=5, null=True, choices=EpciType.choices)
     siren = models.CharField(max_length=9)
 
     def __str__(self):

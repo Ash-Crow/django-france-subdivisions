@@ -3,14 +3,12 @@ from francesubdivisions.models import (
     Region,
     Departement,
     Epci,
-    EpciType,
     Commune,
 )
 from francesubdivisions.serializers import (
     RegionSerializer,
     DepartementSerializer,
     EpciSerializer,
-    EpciTypeSerializer,
     CommuneSerializer,
 )
 from rest_framework import generics
@@ -200,20 +198,6 @@ class EpciDetailSiren(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EpciSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     lookup_field = "siren"
-
-
-class EpciTypeList(generics.ListCreateAPIView):
-    queryset = EpciType.objects.all()
-    serializer_class = EpciTypeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["name"], ["acronym"]
-
-
-class EpciTypeDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = EpciType.objects.all()
-    serializer_class = EpciTypeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
 
 class CommuneList(generics.ListCreateAPIView):

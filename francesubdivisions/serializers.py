@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from francesubdivisions.models import Region, Departement, Epci, EpciType, Commune
+from francesubdivisions.models import Region, Departement, Epci, Commune
 
 
 class RegionSerializer(serializers.HyperlinkedModelSerializer):
@@ -13,12 +13,6 @@ class DepartementSerializer(serializers.HyperlinkedModelSerializer):
         model = Departement
         depth = 1
         fields = ["id", "name", "insee", "siren", "year", "region"]
-
-
-class EpciTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EpciType
-        fields = ["id", "name", "acronym"]
 
 
 class EpciSerializer(serializers.HyperlinkedModelSerializer):
