@@ -1,4 +1,6 @@
-Django==3.1.2
-djangorestframework==3.12.1
-python-stdnum==1.14
-Unidecode==1.1.1
+Django
+djangorestframework
+python-stdnum
+Unidecode
+openpyxl-dictreader
+~                                                                                            
