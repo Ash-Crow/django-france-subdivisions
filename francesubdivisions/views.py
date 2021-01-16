@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework import filters
 from unidecode import unidecode
+from django.db.models import Max
 
 
 @api_view(["GET"])
@@ -50,10 +51,28 @@ def SearchAll(request, query):
     response = []
 
     # year filter
-    regions_year = int(Metadata.objects.get(prop="regions_latest").value)
-    departements_year = int(Metadata.objects.get(prop="departements_latest").value)
-    epcis_year = int(Metadata.objects.get(prop="epcis_latest").value)
-    communes_year = int(Metadata.objects.get(prop="communes_latest").value)
+    regions_year_entry = DataYear.objects.get(
+        year=Metadata.objects.filter(prop="cog_regions_year").aggregate(Max("value"))[
+            "value__max"
+        ]
+    )
+    departements_year_entry = DataYear.objects.get(
+        year=Metadata.objects.filter(prop="cog_depts_year").aggregate(Max("value"))[
+            "value__max"
+        ]
+    )
+
+    epcis_year_entry = DataYear.objects.get(
+        year=Metadata.objects.filter(prop="banatic_epci_year").aggregate(Max("value"))[
+            "value__max"
+        ]
+    )
+
+    communes_year_entry = DataYear.objects.get(
+        year=Metadata.objects.filter(prop="cog_communes_year").aggregate(Max("value"))[
+            "value__max"
+        ]
+    )
 
     query = unidecode(query).lower()
 
@@ -76,24 +95,24 @@ def SearchAll(request, query):
         ]
         if query in shortnamed_communes:
             communes_raw = Commune.objects.filter(
-                name__unaccent__iexact=query, year__exact=communes_year
+                name__unaccent__iexact=query, years__exact=communes_year_entry
             )
     else:
         regions_raw = Region.objects.filter(
-            name__unaccent__istartswith=query, year__exact=regions_year
+            name__unaccent__istartswith=query, years__exact=regions_year_entry
         ).exclude(
             siren__exact=""
         )  # Exclude Mayotte that has no region-level Siren
         departements_raw = Departement.objects.filter(
-            name__unaccent__istartswith=query, year__exact=departements_year
+            name__unaccent__istartswith=query, years__exact=departements_year_entry
         ).exclude(
             siren__exact=""
         )  # Exclude Haute-Corse, Corse-du-Sud, Martinique and Guyane that have no departement-level Siren
         epcis_raw = Epci.objects.filter(
-            name__unaccent__icontains=query, year__exact=epcis_year
+            name__unaccent__icontains=query, years__exact=epcis_year_entry
         )
         communes_raw = Commune.objects.filter(
-            name__unaccent__istartswith=query, year__exact=communes_year
+            name__unaccent__istartswith=query, years__exact=communes_year_entry
         )
 
     if len(regions_raw):
