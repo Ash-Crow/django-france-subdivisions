@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from django.core.management.base import BaseCommand
-from francesubdivisions.models import Epci, Commune, DataYear
+from francesubdivisions.models import Epci, Commune, DataYear, Metadata
 from francesubdivisions.utils.datagouv import get_datagouv_file
 
 import csv
@@ -97,6 +97,11 @@ class Command(BaseCommand):
                         except:
                             raise ValueError(f"Commune {name} ({insee}) not found")
 
+                md_entry, md_return_code = Metadata.objects.get_or_create(
+                    prop="banatic_communes_year", value=year
+                )
+
+
         if all_levels or level == "epci":
             epci_regex = re.compile(
                 r"Périmètre des EPCI à fiscalité propre - année (?P<year>\d{4})"
@@ -138,3 +143,7 @@ class Command(BaseCommand):
 
                 member_commune.epci = epci_entry
                 member_commune.save()
+
+            md_entry, md_return_code = Metadata.objects.get_or_create(
+                prop="banatic_epci_year", value=year
+            )
