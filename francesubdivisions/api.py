@@ -25,8 +25,8 @@ from francesubdivisions.schemas import (
 router = Router()
 
 
-@router.get("/subdivisions/{query}")
-def searchAll(request, query: str, category: str = None, year: int = None):
+@router.get("/subdivisions/{query}", tags=["subdivisions"])
+def search_subdivisions(request, query: str, category: str = None, year: int = None):
     """
     Search within all categories
 
@@ -167,49 +167,55 @@ def searchAll(request, query: str, category: str = None, year: int = None):
     return response
 
 
-@router.get("/regions", response=List[RegionSchema])
+@router.get("/regions", response=List[RegionSchema], tags=["subdivisions"])
 def list_regions(request):
     queryset = Region.objects.all()
     return queryset
 
 
-@router.get("/regions/{siren_id}", response=RegionSchema)
+@router.get("/regions/{siren_id}", response=RegionSchema, tags=["subdivisions"])
 def get_region(request, siren_id):
     item = get_object_or_404(Region, siren=siren_id)
     return item
 
 
-@router.get("/departement", response=List[DepartementSchema])
+@router.get("/departement", response=List[DepartementSchema], tags=["subdivisions"])
 def list_departements(request):
     queryset = Departement.objects.all()
     return queryset
 
 
-@router.get("/departements/{siren_id}", response=DepartementSchema)
+@router.get(
+    "/departements/{siren_id}", response=DepartementSchema, tags=["subdivisions"]
+)
 def get_departement(request, siren_id):
     item = get_object_or_404(Region, siren=siren_id)
     return region
 
 
-@router.get("/epcis", response=List[EpciSchema])
+@router.get("/epcis", response=List[EpciSchema], tags=["subdivisions"])
 def list_epcis(request):
     queryset = Epci.objects.all()
     return queryset
 
 
-@router.get("/epcis/{siren_id}", response=EpciSchema)
+@router.get("/epcis/{siren_id}", response=EpciSchema, tags=["subdivisions"])
 def get_epci(request, siren_id):
     item = get_object_or_404(Epci, siren=siren_id)
     return item
 
 
-@router.get("/communes", response=List[CommuneSchema])
+@router.get("/communes", response=List[CommuneSchema], tags=["subdivisions"])
 def list_communes(request):
     queryset = Epci.objects.all()
     return queryset
 
 
-@router.get("/communes/{commune_id}", response={200: CommuneSchema, 404: dict})
+@router.get(
+    "/communes/{commune_id}",
+    response={200: CommuneSchema, 404: dict},
+    tags=["subdivisions"],
+)
 def get_commune(request, commune_id):
     """
     Depending if commune_id is 5 or 9 characters long, retrieves the commune by Insee or Siren id.
@@ -223,13 +229,13 @@ def get_commune(request, commune_id):
     return 200, item
 
 
-@router.get("/communes/siren/{siren_id}", response=CommuneSchema)
+@router.get("/communes/siren/{siren_id}", response=CommuneSchema, tags=["subdivisions"])
 def get_commune(request, siren_id):
     item = get_object_or_404(Commune, siren=siren_id)
     return item
 
 
-@router.get("/communes/insee/{insee_id}", response=CommuneSchema)
+@router.get("/communes/insee/{insee_id}", response=CommuneSchema, tags=["subdivisions"])
 def get_commune(request, insee_id):
     item = get_object_or_404(Commune, insee=insee_id)
     return item
