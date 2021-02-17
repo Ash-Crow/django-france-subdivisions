@@ -179,7 +179,7 @@ def get_region(request, siren_id):
     return item
 
 
-@router.get("/departement", response=List[DepartementSchema], tags=["subdivisions"])
+@router.get("/departements", response=List[DepartementSchema], tags=["subdivisions"])
 def list_departements(request):
     queryset = Departement.objects.all()
     return queryset
@@ -189,8 +189,8 @@ def list_departements(request):
     "/departements/{siren_id}", response=DepartementSchema, tags=["subdivisions"]
 )
 def get_departement(request, siren_id):
-    item = get_object_or_404(Region, siren=siren_id)
-    return region
+    item = get_object_or_404(Departement, siren=siren_id)
+    return item
 
 
 @router.get("/epcis", response=List[EpciSchema], tags=["subdivisions"])
