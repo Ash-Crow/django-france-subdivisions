@@ -17,8 +17,8 @@ After installation in an operational Django instance, launch the following comma
   
 # Commands
 ## cog_import:
-- goal:load the following data from the Code officiel géographique (COG): list of regions, departements and communes, with how they are linked and: 
-  - insee and siren ids for the regions/departements
+- goal:load the following data from the Code officiel géographique (COG): list of regions, departments and communes, with how they are linked and: 
+  - insee and siren ids for the regions/departments
   - insee for the communes
 - parameters:
   - `--level`: partial import of only the specified level (the script expects the higher ones to already be installed) Allowed values: `regions`, `departements`, `communes`
