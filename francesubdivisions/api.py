@@ -230,12 +230,12 @@ def get_commune(request, commune_id):
 
 
 @router.get("/communes/siren/{siren_id}", response=CommuneSchema, tags=["subdivisions"])
-def get_commune(request, siren_id):
+def get_commune_by_siren(request, siren_id):
     item = get_object_or_404(Commune, siren=siren_id)
     return item
 
 
 @router.get("/communes/insee/{insee_id}", response=CommuneSchema, tags=["subdivisions"])
-def get_commune(request, insee_id):
+def get_commune_by_insee(request, insee_id):
     item = get_object_or_404(Commune, insee=insee_id)
     return item
