@@ -31,6 +31,9 @@ class Metadata(models.Model):
     def __str__(self):
         return f"{self.prop}: {self.value}"
 
+    class Meta:
+        verbose_name = "métadonnée"
+
 
 class DataYear(models.Model):
     """
@@ -42,6 +45,9 @@ class DataYear(models.Model):
 
     def __str__(self):
         return f"{self.year}"
+
+    class Meta:
+        verbose_name = "millésime"
 
 
 class Region(models.Model):
@@ -59,6 +65,9 @@ class Region(models.Model):
     insee = models.CharField(max_length=2)
     siren = models.CharField(max_length=9)
     category = models.CharField(max_length=3, choices=RegionCategory.choices, null=True)
+
+    class Meta:
+        verbose_name = "région"
 
     def __str__(self):
         return self.name
@@ -90,6 +99,9 @@ class Departement(models.Model):
         max_length=5, choices=DepartementCategory.choices, null=True
     )
 
+    class Meta:
+        verbose_name = "département"
+
     def __str__(self):
         return f"{self.insee} - {self.name}"
 
@@ -113,6 +125,9 @@ class Epci(models.Model):
     epci_type = models.CharField(max_length=5, null=True, choices=EpciType.choices)
     siren = models.CharField(max_length=9)
 
+    class Meta:
+        verbose_name = "EPCI"
+
     def __str__(self):
         return self.name
 
@@ -130,6 +145,9 @@ class Commune(models.Model):
     insee = models.CharField(max_length=5)
     siren = models.CharField(max_length=9)
     population = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "commune"
 
     def __str__(self):
         return f"{self.name} ({self.departement})"
