@@ -63,6 +63,12 @@ class Region(models.Model):
     def __str__(self):
         return self.name
 
+    def subdivisions_count(self):
+        return {
+            "departements": self.departement_set.all().count(),
+            "communes": Commune.objects.filter(departement__region=self).count(),
+        }
+
 
 class Departement(models.Model):
     """
