@@ -7,7 +7,7 @@ If the PostgreSQL user specified in the Django settings is not a superuser, conn
 ```
 psql
 \c <dbname>
- "CREATE EXTENSION unaccent;"
+ "CREATE EXTENSION  IF NOT EXISTS unaccent;"
 ```
 
 # Load data

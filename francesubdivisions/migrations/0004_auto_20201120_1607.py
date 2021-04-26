@@ -9,4 +9,4 @@ class Migration(migrations.Migration):
         ("francesubdivisions", "0003_auto_20201103_1412"),
     ]
 
-    operations = [UnaccentExtension()]
+    # operations = [UnaccentExtension()]
