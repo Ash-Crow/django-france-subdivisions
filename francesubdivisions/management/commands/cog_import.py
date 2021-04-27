@@ -81,6 +81,7 @@ class Command(BaseCommand):
                 entry, return_code = Region.objects.get_or_create(
                     name=r["name"], insee=r["insee"]
                 )
+                entry.create_slug()
                 entry.save()
                 entry.years.add(year_entry)
 
@@ -126,6 +127,7 @@ class Command(BaseCommand):
                 entry, return_code = Departement.objects.get_or_create(
                     name=d["name"], insee=d["insee"], region=region
                 )
+                entry.create_slug()
                 entry.save()
                 entry.years.add(year_entry)
 
@@ -175,7 +177,7 @@ class Command(BaseCommand):
                 entry, return_code = Commune.objects.get_or_create(
                     name=c["name"], insee=c["insee"], departement=dept
                 )
-
+                entry.create_slug()
                 entry.save()
                 entry.years.add(year_entry)
 

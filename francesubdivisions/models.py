@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 from stdnum.fr import siren
 from django.utils.translation import gettext_lazy as _
 
@@ -65,6 +66,7 @@ class Region(models.Model):
     insee = models.CharField(max_length=2)
     siren = models.CharField(max_length=9)
     category = models.CharField(max_length=3, choices=RegionCategory.choices, null=True)
+    slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         verbose_name = "région"
@@ -77,6 +79,9 @@ class Region(models.Model):
             "departements": self.departement_set.all().count(),
             "communes": Commune.objects.filter(departement__region=self).count(),
         }
+
+    def create_slug(self):
+        self.slug = slugify(self.name)
 
 
 class Departement(models.Model):
@@ -98,12 +103,16 @@ class Departement(models.Model):
     category = models.CharField(
         max_length=5, choices=DepartementCategory.choices, null=True
     )
+    slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         verbose_name = "département"
 
     def __str__(self):
         return f"{self.insee} - {self.name}"
+
+    def create_slug(self):
+        self.slug = slugify(self.name)
 
 
 class Epci(models.Model):
@@ -124,12 +133,16 @@ class Epci(models.Model):
     years = models.ManyToManyField(DataYear)
     epci_type = models.CharField(max_length=5, null=True, choices=EpciType.choices)
     siren = models.CharField(max_length=9)
+    slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         verbose_name = "EPCI"
 
     def __str__(self):
         return self.name
+
+    def create_slug(self):
+        self.slug = slugify(f"{self.name}-{self.siren}")
 
 
 class Commune(models.Model):
@@ -145,9 +158,13 @@ class Commune(models.Model):
     insee = models.CharField(max_length=5)
     siren = models.CharField(max_length=9)
     population = models.IntegerField(null=True, blank=True)
+    slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         verbose_name = "commune"
 
     def __str__(self):
         return f"{self.name} ({self.departement})"
+
+    def create_slug(self):
+        self.slug = slugify(f"{self.name}-{self.insee}")

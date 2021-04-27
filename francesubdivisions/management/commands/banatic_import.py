@@ -101,7 +101,6 @@ class Command(BaseCommand):
                     prop="banatic_communes_year", value=year
                 )
 
-
         if all_levels or level == "epci":
             epci_regex = re.compile(
                 r"Périmètre des EPCI à fiscalité propre - année (?P<year>\d{4})"
@@ -138,6 +137,7 @@ class Command(BaseCommand):
                     siren=epci_siren,
                 )
 
+                epci_entry.create_slug()
                 epci_entry.save()
                 epci_entry.years.add(year_entry)
 
