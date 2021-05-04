@@ -129,7 +129,9 @@ def search_subdivisions(request, query: str, category: str = None, year: int = N
     if len(regions_raw):
         regions = []
         for r in regions_raw:
-            regions.append({"value": r.siren, "text": r.name, "type": "region"})
+            regions.append(
+                {"value": r.siren, "text": r.name, "type": "region", "slug": r.slug}
+            )
 
         response.append({"groupName": "Régions", "items": regions})
 
@@ -137,7 +139,12 @@ def search_subdivisions(request, query: str, category: str = None, year: int = N
         departements = []
         for d in departements_raw:
             departements.append(
-                {"value": d.siren, "text": d.name, "type": "departement"}
+                {
+                    "value": d.siren,
+                    "text": d.name,
+                    "type": "departement",
+                    "slug": d.slug,
+                }
             )
 
         response.append({"groupName": "Départements", "items": departements})
@@ -145,7 +152,9 @@ def search_subdivisions(request, query: str, category: str = None, year: int = N
     if len(epcis_raw):
         epcis = []
         for e in epcis_raw:
-            epcis.append({"value": e.siren, "text": e.name, "type": "epci"})
+            epcis.append(
+                {"value": e.siren, "text": e.name, "type": "epci", "slug": e.slug}
+            )
 
         response.append({"groupName": "Intercommunalités", "items": epcis})
 
@@ -159,6 +168,7 @@ def search_subdivisions(request, query: str, category: str = None, year: int = N
                     "name": c.name,
                     "insee": c.insee,
                     "type": "commune",
+                    "slug": c.slug,
                 }
             )
 
