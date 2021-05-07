@@ -62,7 +62,7 @@ class EpciAdmin(admin.ModelAdmin):
 
 @admin.register(models.Commune)
 class CommuneAdmin(admin.ModelAdmin):
-    search_fields = ("name__startswith", "insee", "siren")
+    search_fields = ("name", "insee", "siren")
     list_display = ("name", "insee", "siren")
     list_filter = ("years", "departement", "epci")
     ordering = ["name", "insee"]
