@@ -1,6 +1,8 @@
+from django.db.models.query import QuerySet
 from django.db import models
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from stdnum.exceptions import InvalidChecksum, InvalidFormat, InvalidLength
 from django.utils.text import slugify
 from stdnum.fr import siren
 from django.utils.translation import gettext_lazy as _
@@ -113,6 +115,16 @@ class Departement(models.Model):
 
     def create_slug(self):
         self.slug = slugify(self.name)
+
+    def list_epcis(self) -> QuerySet:
+        epci_ids = list(
+            self.commune_set.all().values_list("epci__id", flat=True).distinct()
+        )
+        if None in epci_ids:
+            # It happens for departements that have isolated communes
+            epci_ids.remove(None)
+
+        return Epci.objects.filter(id__in=epci_ids)
 
 
 class Epci(models.Model):
