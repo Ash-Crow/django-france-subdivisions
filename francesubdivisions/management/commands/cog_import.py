@@ -3,14 +3,10 @@
 
 from django.core.management.base import BaseCommand
 from francesubdivisions.models import Commune, Departement, Region, DataYear, Metadata
-from francesubdivisions.utils.datagouv import get_datagouv_file
-import csv
 from os import path
-import re
-import requests
-from zipfile import ZipFile
-from io import BytesIO, TextIOWrapper
 
+from francesubdivisions.services.cog import import_regions_from_cog
+from francesubdivisions.services.utils import add_sirens_and_categories
 
 """
 Ce script récupère les données de
@@ -21,9 +17,6 @@ D'après https://www.insee.fr/fr/information/2560452:
 "Depuis le millésime 2019, les fichiers ont sensiblement évolué 
 dans leur format et leur structure."
 """
-
-COG_ID = "58c984b088ee386cdb1261f3"
-COG_MIN_YEAR = 2019
 
 
 class Command(BaseCommand):
@@ -58,38 +51,8 @@ class Command(BaseCommand):
 
         # Régions
         if all_levels or level == "regions":
-            # First, the data from the COG
-            region_regex = re.compile(r"Millésime (?P<year>\d{4})\s: Liste des régions")
-            region_files = get_datagouv_file(COG_ID, region_regex, COG_MIN_YEAR)
-
-            if not year:
-                year = max(region_files)
-            year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
-
-            import_region_file = region_files[year]
-
-            regions = parse_csv_from_distant_zip(
-                import_region_file["url"],
-                f"region{year}.csv",
-                "reg",
-            )
-
-            for r in regions:
-                entry, return_code = Region.objects.get_or_create(
-                    name=r["name"], insee=r["insee"]
-                )
-                entry.create_slug()
-                entry.save()
-                entry.years.add(year_entry)
-
-                if return_code:
-                    print(f"Région {entry} created.")
-                else:
-                    print(f"Région {entry} already in database, skipped.")
-
-            md_entry, md_return_code = Metadata.objects.get_or_create(
-                prop="cog_regions_year", value=year
-            )
+            # First import data from the COG
+            year_entry = import_regions_from_cog(year)
 
             # Then the SIRENs from a local file
             regions_list = path.join(
@@ -97,6 +60,7 @@ class Command(BaseCommand):
             )
             add_sirens_and_categories(regions_list, Region, year_entry)
 
+        """
         # Départements
         if all_levels or level == "departements":
             # First, the data from the COG
@@ -106,7 +70,7 @@ class Command(BaseCommand):
             depts_files = get_datagouv_file(COG_ID, depts_regex, COG_MIN_YEAR)
 
             if not year:
-                year = max(dept_files)
+                year = max(depts_files)
             year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
 
             import_dept_file = depts_files[year]
@@ -186,50 +150,4 @@ class Command(BaseCommand):
             md_entry, md_return_code = Metadata.objects.get_or_create(
                 prop="cog_communes_year", value=year
             )
-
-
-def parse_csv_from_distant_zip(
-    zip_url, csv_name, insee_col, higher_col="", typecheck=False
-):
-    print(f"🗜️   Parsing archive {zip_url}")
-    zip_name = requests.get(zip_url).content
-    with ZipFile(BytesIO(zip_name)) as zip_file:
-        with zip_file.open(csv_name) as csv_file:
-            reader = csv.DictReader(TextIOWrapper(csv_file, encoding="utf-8-sig"))
-            entries = []
-            if typecheck:
-                tc_col = typecheck[0]
-                tc_val = typecheck[1]
-
-            for row in reader:
-                if typecheck:
-                    if row[tc_col] != tc_val:
-                        continue
-                entry = {}
-                entry["insee"] = row[insee_col]
-                if higher_col:
-                    entry["higher"] = row[higher_col]
-                entry["name"] = row["libelle"]
-                entries.append(entry)
-            return entries
-
-
-def add_sirens_and_categories(input_file, model_name, year_entry):
-    with open(input_file, "r") as input_csv:
-        reader = csv.DictReader(input_csv)
-        for row in reader:
-            insee = row["Insee"]
-            siren = row["Siren"]
-            category = row["CATEG"]
-
-            if category != "ML":
-                # The Métropole de Lyon is managed only at the EPCI level
-                try:
-                    collectivity_entry = model_name.objects.get(
-                        insee=insee, years=year_entry
-                    )
-                    collectivity_entry.siren = siren
-                    collectivity_entry.category = category
-                    collectivity_entry.save()
-                except:
-                    print(f"{model_name} {insee} not found")
+        """
