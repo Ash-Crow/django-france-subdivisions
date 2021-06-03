@@ -2,13 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from django.core.management.base import BaseCommand
-from django.core.exceptions import ValidationError
 from francesubdivisions.models import Commune, Departement, Region, DataYear, Metadata
-from francesubdivisions.models import validate_insee_commune
 from francesubdivisions.utils.datagouv import get_datagouv_file
 import csv
 from os import path
-from pprint import pprint
 import re
 import requests
 from zipfile import ZipFile
