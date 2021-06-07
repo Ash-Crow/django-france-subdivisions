@@ -1,33 +1,20 @@
 from django.db.models.query import QuerySet
 from django.db import models
-from django.core.validators import RegexValidator
-from django.core.exceptions import ValidationError
-from stdnum.exceptions import InvalidChecksum, InvalidFormat, InvalidLength
 from django.utils.text import slugify
-from stdnum.fr import siren
-from django.utils.translation import gettext_lazy as _
 
-# Validators
-validate_insee_commune = RegexValidator(r"^\d[0-9AB][0-9P]\d\d$")
-
-
-def validate_siren(value):
-    try:
-        siren.validate(value)
-    except (InvalidChecksum, InvalidFormat, InvalidLength):
-        raise ValidationError(
-            _("%(value)s is not an valid siren id"),
-            params={"value": value},
-        )
+from francesubdivisions.services.django_admin import TimeStampModel
+from francesubdivisions.services.validators import (
+    validate_insee_commune,
+    validate_siren,
+)
 
 
 # Models
-class Metadata(models.Model):
+class Metadata(TimeStampModel):
     """
     The metadata, as property (prop)/value couples
     """
 
-    created = models.DateTimeField(auto_now_add=True)
     prop = models.CharField(max_length=100)
     value = models.CharField(max_length=255)
 
@@ -38,12 +25,11 @@ class Metadata(models.Model):
         verbose_name = "métadonnée"
 
 
-class DataYear(models.Model):
+class DataYear(TimeStampModel):
     """
     The years for which we have data stored
     """
 
-    created = models.DateTimeField(auto_now_add=True)
     year = models.PositiveSmallIntegerField()
 
     def __str__(self):
@@ -53,7 +39,15 @@ class DataYear(models.Model):
         verbose_name = "millésime"
 
 
-class Region(models.Model):
+class DataSource(TimeStampModel):
+    """
+    The source file for the data stored
+    """
+
+    pass
+
+
+class Region(TimeStampModel):
     """
     A French région
     """
@@ -62,12 +56,16 @@ class Region(models.Model):
         REG = "REG", "Région"
         CTU = "CTU", "Collectivité territoriale unique"
 
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100)
-    years = models.ManyToManyField(DataYear)
-    insee = models.CharField(max_length=2)
-    siren = models.CharField(max_length=9)
-    category = models.CharField(max_length=3, choices=RegionCategory.choices, null=True)
+    name = models.CharField("nom", max_length=100)
+    years = models.ManyToManyField(DataYear, verbose_name="millésimes")
+    insee = models.CharField("identifiant Insee", max_length=2)
+    siren = models.CharField("numéro Siren", max_length=9)
+    category = models.CharField(
+        max_length=3,
+        choices=RegionCategory.choices,
+        null=True,
+        verbose_name="catégorie",
+    )
     slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
@@ -86,7 +84,7 @@ class Region(models.Model):
         self.slug = slugify(self.name)
 
 
-class Departement(models.Model):
+class Departement(TimeStampModel):
     """
     A French département
     """
@@ -96,14 +94,18 @@ class Departement(models.Model):
         PARIS = "PARIS", "Paris"
         ML = "ML", "Métropole de Lyon"
 
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100)
-    years = models.ManyToManyField(DataYear)
-    region = models.ForeignKey("Region", on_delete=models.CASCADE)
-    insee = models.CharField(max_length=3)
-    siren = models.CharField(max_length=9)
+    name = models.CharField("nom", max_length=100)
+    years = models.ManyToManyField(DataYear, verbose_name="millésimes")
+    region = models.ForeignKey(
+        "Region", on_delete=models.CASCADE, verbose_name="région"
+    )
+    insee = models.CharField("identifiant Insee", max_length=3)
+    siren = models.CharField("numéro Siren", max_length=9)
     category = models.CharField(
-        max_length=5, choices=DepartementCategory.choices, null=True
+        max_length=5,
+        choices=DepartementCategory.choices,
+        null=True,
+        verbose_name="catégorie",
     )
     slug = models.CharField(max_length=100, blank=True, default="")
 
@@ -127,7 +129,7 @@ class Departement(models.Model):
         return Epci.objects.filter(id__in=epci_ids)
 
 
-class Epci(models.Model):
+class Epci(TimeStampModel):
     """
     A French établissement public de coopération intercommunale
     à fiscalité propre
@@ -140,11 +142,12 @@ class Epci(models.Model):
         MET69 = "MET69", "Métropole de Lyon"
         METRO = "METRO", "Métropole"
 
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100)
-    years = models.ManyToManyField(DataYear)
-    epci_type = models.CharField(max_length=5, null=True, choices=EpciType.choices)
-    siren = models.CharField(max_length=9)
+    name = models.CharField("nom", max_length=100)
+    years = models.ManyToManyField(DataYear, verbose_name="millésimes")
+    epci_type = models.CharField(
+        max_length=5, null=True, choices=EpciType.choices, verbose_name="type d’EPCI"
+    )
+    siren = models.CharField("numéro Siren", max_length=9)
     slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
@@ -157,18 +160,21 @@ class Epci(models.Model):
         self.slug = slugify(f"{self.name}-{self.siren}")
 
 
-class Commune(models.Model):
+class Commune(TimeStampModel):
     """
     A French commune
     """
 
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100)
-    years = models.ManyToManyField(DataYear)
-    departement = models.ForeignKey("Departement", on_delete=models.CASCADE)
-    epci = models.ForeignKey("Epci", on_delete=models.CASCADE, null=True)
-    insee = models.CharField(max_length=5)
-    siren = models.CharField(max_length=9)
+    name = models.CharField("nom", max_length=100)
+    years = models.ManyToManyField(DataYear, verbose_name="millésimes")
+    departement = models.ForeignKey(
+        "Departement", on_delete=models.CASCADE, verbose_name="département"
+    )
+    epci = models.ForeignKey(
+        "Epci", on_delete=models.CASCADE, null=True, verbose_name="EPCI"
+    )
+    insee = models.CharField("identifiant Insee", max_length=5)
+    siren = models.CharField("numéro Siren", max_length=9)
     population = models.IntegerField(null=True, blank=True)
     slug = models.CharField(max_length=100, blank=True, default="")
 
@@ -180,3 +186,7 @@ class Commune(models.Model):
 
     def create_slug(self):
         self.slug = slugify(f"{self.name}-{self.insee}")
+
+    def save(self, *args, **kwargs):
+        self.create_slug()
+        return super().save(*args, **kwargs)
