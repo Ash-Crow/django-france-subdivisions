@@ -9,7 +9,7 @@ from francesubdivisions.services.validators import (
 )
 
 
-# Models
+# Meta models
 class Metadata(TimeStampModel):
     """
     The metadata, as property (prop)/value couples
@@ -44,9 +44,17 @@ class DataSource(TimeStampModel):
     The source file for the data stored
     """
 
-    pass
+    title = models.CharField("titre", max_length=255)
+    url = models.CharField("URL", max_length=255)
+    year = models.ForeignKey(
+        "DataYear", on_delete=models.RESTRICT, verbose_name="millésime"
+    )
+
+    class Meta:
+        verbose_name = "source"
 
 
+# France administrative structure models
 class Region(TimeStampModel):
     """
     A French région
@@ -190,3 +198,25 @@ class Commune(TimeStampModel):
     def save(self, *args, **kwargs):
         self.create_slug()
         return super().save(*args, **kwargs)
+
+
+# France collectivities data models
+class RegionData(TimeStampModel):
+    region = models.ForeignKey(
+        "Region", on_delete=models.CASCADE, verbose_name="région"
+    )
+    year = models.ForeignKey(
+        "DataYear", on_delete=models.PROTECT, verbose_name="millésime"
+    )
+    datacode = models.CharField("valeur", max_length=255)
+    value = models.CharField("valeur", max_length=255, blank=True, null=True)
+    datatype = models.CharField("type", max_length=255, blank=True, null=True)
+    source = models.ForeignKey(
+        "DataSource", on_delete=models.PROTECT, verbose_name="source"
+    )
+
+    class Meta:
+        verbose_name = "données régions"
+
+    def __str__(self):
+        return f"{self.region.name} - {self.year.year} - {self.datacode}: {self.value}"

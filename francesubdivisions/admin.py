@@ -183,3 +183,4 @@ class CommuneAdmin(TimeStampModelAdmin):
 
 admin.site.register(models.Metadata)
 admin.site.register(models.DataYear)
+admin.site.register(models.DataSource)
