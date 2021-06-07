@@ -50,6 +50,9 @@ class DataSource(TimeStampModel):
         "DataYear", on_delete=models.RESTRICT, verbose_name="millésime"
     )
 
+    def __str__(self):
+        return f"{self.title} ({self.year})"
+
     class Meta:
         verbose_name = "source"
 
@@ -208,7 +211,7 @@ class RegionData(TimeStampModel):
     year = models.ForeignKey(
         "DataYear", on_delete=models.PROTECT, verbose_name="millésime"
     )
-    datacode = models.CharField("valeur", max_length=255)
+    datacode = models.CharField("code", max_length=255)
     value = models.CharField("valeur", max_length=255, blank=True, null=True)
     datatype = models.CharField("type", max_length=255, blank=True, null=True)
     source = models.ForeignKey(
@@ -216,7 +219,13 @@ class RegionData(TimeStampModel):
     )
 
     class Meta:
-        verbose_name = "données régions"
+        verbose_name = "donnée région"
+        verbose_name_plural = "données région"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["region", "year", "datacode"], name="unique metadata point"
+            )
+        ]
 
     def __str__(self):
         return f"{self.region.name} - {self.year.year} - {self.datacode}: {self.value}"

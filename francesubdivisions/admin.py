@@ -1,7 +1,4 @@
 from django.contrib import admin
-from django.urls import reverse
-from django.utils.http import urlencode
-from django.utils.html import format_html
 
 from francesubdivisions import models
 from francesubdivisions.services.django_admin import (
@@ -11,11 +8,17 @@ from francesubdivisions.services.django_admin import (
 )
 
 
+class RegionDataInline(admin.TabularInline):
+    model = models.RegionData
+    extra = 0
+
+
 @admin.register(models.Region)
 class RegionAdmin(TimeStampModelAdmin):
     search_fields = ("name__startswith", "slug", "insee", "siren")
     list_display = ("name", "slug", "insee", "siren", "view_departements_link")
     ordering = ["name"]
+    inlines = [RegionDataInline]
 
     def view_departements_link(self, obj):
         return view_reverse_changelink(
