@@ -6,8 +6,6 @@ from io import BytesIO, TextIOWrapper
 
 def parse_csv_from_distant_zip(zip_url, csv_name, column_names, typecheck=False):
 
-    insee_col = column_names["insee_col"]
-    name_col = column_names["name_col"]
     print(f"🗜️   Parsing archive {zip_url}")
     zip_name = requests.get(zip_url).content
     with ZipFile(BytesIO(zip_name)) as zip_file:
@@ -23,11 +21,9 @@ def parse_csv_from_distant_zip(zip_url, csv_name, column_names, typecheck=False)
                     if row[tc_col] != tc_val:
                         continue
                 entry = {}
-                entry["insee"] = row[insee_col]
-                if "higher_col" in column_names:
-                    higher_col = column_names["higher_col"]
-                    entry["higher"] = row[higher_col]
-                entry["name"] = row[name_col]
+                # Parse all the columns
+                for key, val in column_names.items():
+                    entry[key] = row[val]
                 entries.append(entry)
             return entries
 
