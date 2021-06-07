@@ -2,7 +2,7 @@ import re
 
 from francesubdivisions.services.datagouv import get_datagouv_file
 from francesubdivisions.services.utils import parse_csv_from_distant_zip
-from francesubdivisions.models import Region, DataYear, Metadata
+from francesubdivisions.models import DataSource, Region, DataYear, Metadata, RegionData
 
 from pprint import pprint
 
@@ -16,15 +16,29 @@ def import_regions_from_cog(year: int):
 
     if not year:
         year = max(region_files)
-    year_entry, year_return_code = DataYear.objects.get_or_create(year=year)
+    year_entry, _year_return_code = DataYear.objects.get_or_create(year=year)
 
     import_region_file = region_files[year]
     pprint(import_region_file)
 
+    source_entry, _source_return_code = DataSource.objects.get_or_create(
+        title=f"COG {import_region_file['title']}",
+        url=import_region_file["url"],
+        year=year_entry,
+    )
+
     if year >= 2021:
-        column_names = {"insee_col": "REG", "name_col": "LIBELLE"}
+        column_names = {
+            "insee": "REG",
+            "name": "LIBELLE",
+            "seat_insee": "CHEFLIEU",
+        }
     else:
-        column_names = {"insee_col": "reg", "name_col": "libelle"}
+        column_names = {
+            "insee": "reg",
+            "name": "libelle",
+            "seat_insee": "cheflieu",
+        }
 
     regions = parse_csv_from_distant_zip(
         import_region_file["url"],
@@ -33,6 +47,7 @@ def import_regions_from_cog(year: int):
     )
 
     for r in regions:
+        # Create or update region item
         entry, return_code = Region.objects.get_or_create(
             name=r["name"], insee=r["insee"]
         )
@@ -50,6 +65,17 @@ def import_regions_from_cog(year: int):
             print(f"Région {entry} already in database, updated year.")
         else:
             print(f"Région {entry} already in database, skipped.")
+
+        # Import metadata
+        seat_metadata, _seat_metadata_return_code = RegionData.objects.get_or_create(
+            region=entry,
+            year=year_entry,
+            datacode="seat_insee",
+            datatype="string",
+            value=r["seat_insee"],
+            source=source_entry,
+        )
+        seat_metadata.save()
 
     md_entry, md_return_code = Metadata.objects.get_or_create(
         prop="cog_regions_year", value=year
