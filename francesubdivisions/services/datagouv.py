@@ -1,5 +1,4 @@
 import requests
-import re
 
 API_BASE = "https://www.data.gouv.fr/api/1/"
 
