@@ -52,13 +52,13 @@ class Command(BaseCommand):
         # Régions
         if all_levels or level == "regions":
             # First import data from the COG
-            year_entry = import_regions_from_cog(year)
+            response = import_regions_from_cog(year)
 
             # Then the SIRENs from a local file
             regions_list = path.join(
                 "francesubdivisions", "resources", "regions-siren.csv"
             )
-            add_sirens_and_categories(regions_list, Region, year_entry)
+            add_sirens_and_categories(regions_list, Region, response["year_entry"])
 
         """
         # Départements

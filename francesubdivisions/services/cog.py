@@ -10,7 +10,7 @@ COG_ID = "58c984b088ee386cdb1261f3"
 COG_MIN_YEAR = 2019
 
 
-def import_regions_from_cog(year: int):
+def import_regions_from_cog(year: int = 0) -> dict:
     region_regex = re.compile(r"Millésime (?P<year>\d{4})\s: Liste des régions")
     region_files = get_datagouv_file(COG_ID, region_regex, COG_MIN_YEAR)
 
@@ -51,7 +51,6 @@ def import_regions_from_cog(year: int):
         entry, return_code = Region.objects.get_or_create(
             name=r["name"], insee=r["insee"]
         )
-        entry.create_slug()
         entry.save()
         if not year_entry in entry.years.all():
             new_year = True
@@ -77,8 +76,6 @@ def import_regions_from_cog(year: int):
         )
         seat_metadata.save()
 
-    md_entry, md_return_code = Metadata.objects.get_or_create(
-        prop="cog_regions_year", value=year
-    )
+    Metadata.objects.get_or_create(prop="cog_regions_year", value=year)
 
-    return year_entry
+    return {"year_entry": year_entry}
