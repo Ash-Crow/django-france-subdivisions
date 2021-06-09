@@ -1,5 +1,6 @@
-from django.db.models.query import QuerySet
 from django.db import models
+from django.db.models import Max
+from django.db.models.query import QuerySet
 from django.utils.text import slugify
 
 from francesubdivisions.services.django_admin import TimeStampModel
@@ -58,7 +59,35 @@ class DataSource(TimeStampModel):
 
 
 # France administrative structure models
-class Region(TimeStampModel):
+
+
+class CollectivityModel(TimeStampModel):
+    """
+    Abstract model for common methods used by the following ones
+    """
+
+    class Meta:
+        abstract = True
+
+    def get_data(self, year: int = None, datacode: str = None):
+        """
+        Get the data for the given year (by default, the most recent one)
+        If a datacode is provided, return only this data point
+        """
+        if not year:
+            year = self.years.aggregate(Max("year"))["year__max"]
+        data = self.regiondata_set.filter(year__year=year)
+
+        if datacode:
+            data = data.filter(datacode=datacode)
+
+        return data
+
+    def create_slug(self):
+        self.slug = slugify(self.name)
+
+
+class Region(CollectivityModel):
     """
     A French région
     """
@@ -85,17 +114,18 @@ class Region(TimeStampModel):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        self.create_slug()
+        return super().save(*args, **kwargs)
+
     def subdivisions_count(self):
         return {
             "departements": self.departement_set.all().count(),
             "communes": Commune.objects.filter(departement__region=self).count(),
         }
 
-    def create_slug(self):
-        self.slug = slugify(self.name)
 
-
-class Departement(TimeStampModel):
+class Departement(CollectivityModel):
     """
     A French département
     """
@@ -140,7 +170,7 @@ class Departement(TimeStampModel):
         return Epci.objects.filter(id__in=epci_ids)
 
 
-class Epci(TimeStampModel):
+class Epci(CollectivityModel):
     """
     A French établissement public de coopération intercommunale
     à fiscalité propre
@@ -171,7 +201,7 @@ class Epci(TimeStampModel):
         self.slug = slugify(f"{self.name}-{self.siren}")
 
 
-class Commune(TimeStampModel):
+class Commune(CollectivityModel):
     """
     A French commune
     """
@@ -204,10 +234,12 @@ class Commune(TimeStampModel):
 
 
 # France collectivities data models
-class RegionData(TimeStampModel):
-    region = models.ForeignKey(
-        "Region", on_delete=models.CASCADE, verbose_name="région"
-    )
+class CollectivityDataModel(TimeStampModel):
+    """
+    Abstract model for common methods used by the following ones
+    """
+
+    # (Missing here: "collectivity" variable, specific to the relevant collectivity level)
     year = models.ForeignKey(
         "DataYear", on_delete=models.PROTECT, verbose_name="millésime"
     )
@@ -219,13 +251,77 @@ class RegionData(TimeStampModel):
     )
 
     class Meta:
+        abstract = True
+
+
+class RegionData(CollectivityDataModel):
+    region = models.ForeignKey(
+        "Region", on_delete=models.CASCADE, verbose_name="région"
+    )
+
+    class Meta:
         verbose_name = "donnée région"
         verbose_name_plural = "données région"
         constraints = [
             models.UniqueConstraint(
-                fields=["region", "year", "datacode"], name="unique metadata point"
+                fields=["region", "year", "datacode"], name="unique region data"
             )
         ]
 
     def __str__(self):
         return f"{self.region.name} - {self.year.year} - {self.datacode}: {self.value}"
+
+
+class DepartementData(CollectivityDataModel):
+    departement = models.ForeignKey(
+        "Departement", on_delete=models.CASCADE, verbose_name="département"
+    )
+
+    class Meta:
+        verbose_name = "donnée département"
+        verbose_name_plural = "données département"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["departement", "year", "datacode"],
+                name="unique departement data",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.departement.name} - {self.year.year} - {self.datacode}: {self.value}"
+
+
+class EpciData(CollectivityDataModel):
+    epci = models.ForeignKey("Epci", on_delete=models.CASCADE, verbose_name="EPCI")
+
+    class Meta:
+        verbose_name = "donnée EPCI"
+        verbose_name_plural = "données EPCI"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["epci", "year", "datacode"],
+                name="unique epci data",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.epci.name} - {self.year.year} - {self.datacode}: {self.value}"
+
+
+class CommuneData(CollectivityDataModel):
+    commune = models.ForeignKey(
+        "Commune", on_delete=models.CASCADE, verbose_name="commune"
+    )
+
+    class Meta:
+        verbose_name = "donnée commune"
+        verbose_name_plural = "données commune"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["commune", "year", "datacode"],
+                name="unique commune data",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.commune.name} - {self.year.year} - {self.datacode}: {self.value}"

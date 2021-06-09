@@ -7,12 +7,28 @@ from francesubdivisions.services.django_admin import (
     view_reverse_changelink,
 )
 
-
+# Inlines
 class RegionDataInline(admin.TabularInline):
     model = models.RegionData
     extra = 0
 
 
+class DepartementDataInline(admin.TabularInline):
+    model = models.DepartementData
+    extra = 0
+
+
+class EpciDataInline(admin.TabularInline):
+    model = models.EpciData
+    extra = 0
+
+
+class CommuneDataInline(admin.TabularInline):
+    model = models.CommuneData
+    extra = 0
+
+
+# Templates
 @admin.register(models.Region)
 class RegionAdmin(TimeStampModelAdmin):
     search_fields = ("name__startswith", "slug", "insee", "siren")
@@ -60,6 +76,7 @@ class DepartementAdmin(TimeStampModelAdmin):
     list_display = ("name", "slug", "insee", "siren", "view_communes_link")
     list_filter = ("years", "region")
     ordering = ["name"]
+    inlines = [DepartementDataInline]
 
     def view_communes_link(self, obj):
         return view_reverse_changelink(
@@ -107,6 +124,7 @@ class EpciAdmin(TimeStampModelAdmin):
     search_fields = ("name", "slug", "siren")
     list_display = ("name", "slug", "siren", "view_communes_link")
     ordering = ["name"]
+    inlines = [EpciDataInline]
 
     def view_communes_link(self, obj):
         return view_reverse_changelink(obj, "francesubdivisions", "epci", "commune")
@@ -148,6 +166,7 @@ class CommuneAdmin(TimeStampModelAdmin):
         "departement_link",
         "region_link",
     ]
+    inlines = [CommuneDataInline]
 
     fieldsets = [
         (
