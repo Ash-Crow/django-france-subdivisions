@@ -1,12 +1,12 @@
-from francesubdivisions.models import Epci, Commune, DataYear, Metadata
-from francesubdivisions.services.datagouv import get_datagouv_file
-
 import csv
 import re
 import requests
 from zipfile import ZipFile
 from io import BytesIO, StringIO
 import openpyxl_dictreader
+
+from francesubdivisions.models import Epci, Commune, DataYear, Metadata
+from francesubdivisions.services.datagouv import get_datagouv_file
 
 BANATIC_ID = "5e1f20058b4c414d3f94460d"
 
@@ -40,22 +40,26 @@ def import_commune_data_from_banatic(year: int = 0) -> None:
         with zip_file.open(annual_files[year]) as xlsx_file:
             reader = openpyxl_dictreader.DictReader(xlsx_file, "insee_siren")
             for row in reader:
-                name = row["nom_com"]
-                insee = row["insee"]
-                print(name, insee)
-                try:
-                    commune = Commune.objects.get(years=year_entry, insee=insee)
-                    if commune.name != name:
-                        print(
-                            f"Commune name {name} ({insee}) doesn't match with database entry {commune}"
-                        )
-                    commune.siren = row["siren"]
-                    commune.population = row["ptot_2020"]
-                    commune.save()
-                except:
-                    raise ValueError(f"Commune {name} ({insee}) not found")
+                import_commune_row_from_banatic(row, year_entry)
 
         Metadata.objects.get_or_create(prop="banatic_communes_year", value=year)
+
+
+def import_commune_row_from_banatic(row: dict, year_entry: DataYear):
+    name = row["nom_com"]
+    insee = row["insee"]
+    print(name, insee)
+    try:
+        commune = Commune.objects.get(years=year_entry, insee=insee)
+        if commune.name != name:
+            print(
+                f"Commune name {name} ({insee}) doesn't match with database entry {commune}"
+            )
+        commune.siren = row["siren"]
+        commune.population = row["ptot_2020"]
+        commune.save()
+    except:
+        raise ValueError(f"Commune {name} ({insee}) not found")
 
 
 def import_epci_data_from_banatic(year: int) -> None:
@@ -81,30 +85,52 @@ def import_epci_data_from_banatic(year: int) -> None:
     # Despite its .xls extension, it is actually a tsv.
     tsv_bytes = requests.get(epci_filename).content
 
+    print(tsv_bytes)
+
     str_file = StringIO(tsv_bytes.decode("cp1252"), newline="\n")
 
     reader = csv.DictReader(str_file, delimiter="\t")
-    for row in reader:
-        epci_name = row["Nom du groupement"]
-        epci_type = row["Nature juridique"]
-        epci_siren = row["N° SIREN"]
 
-        member_siren = row["Siren membre"]
-        member_commune = Commune.objects.get(siren=member_siren, years=year_entry)
+    rows_number = len(list(reader))
 
-        # Get or create the EPCI
-        epci_entry, return_code = Epci.objects.get_or_create(
-            name=epci_name,
-            epci_type=epci_type,
-            siren=epci_siren,
-        )
+    if rows_number:
+        for row in reader:
+            import_epci_row_from_banatic(row, year_entry)
 
-        epci_entry.create_slug()
-        epci_entry.save()
-        epci_entry.years.add(year_entry)
+        Metadata.objects.get_or_create(prop="banatic_epci_year", value=year)
+    else:
+        raise ValueError("The spreadsheet is empty")
 
-        # Adds the membership data on the communes entries
-        member_commune.epci = epci_entry
-        member_commune.save()
 
-    Metadata.objects.get_or_create(prop="banatic_epci_year", value=year)
+def import_epci_row_from_banatic(row, year_entry):
+    epci_name = row["Nom du groupement"]
+    epci_type = row["Nature juridique"]
+    epci_siren = row["N° SIREN"]
+
+    member_siren = row["Siren membre"]
+    member_commune = Commune.objects.get(siren=member_siren, years=year_entry)
+
+    # Get or create the EPCI
+    epci_entry, return_code = Epci.objects.get_or_create(
+        name=epci_name,
+        epci_type=epci_type,
+        siren=epci_siren,
+    )
+    epci_entry.save()
+
+    if not year_entry in epci_entry.years.all():
+        new_year = True
+    else:
+        new_year = False
+    epci_entry.years.add(year_entry)
+
+    if return_code:
+        print(f"EPCI {epci_entry} created.")
+    elif new_year:
+        print(f"EPCI {epci_entry} already in database, updated year.")
+    else:
+        print(f"EPCI {epci_entry} already in database, skipped.")
+
+    # Adds the membership data on the communes entries
+    member_commune.epci = epci_entry
+    member_commune.save()
