@@ -167,7 +167,7 @@ def import_departements_from_cog(year):
 
 def import_communes_from_cog(year):
 
-    communes_regex = re.compile(r"^Millésime (?P<year>\d{4})\s: Liste des communes")
+    communes_regex = re.compile(r"^Millésime (?P<year>\d{4})\s:\s+Liste des communes")
     communes_files = get_datagouv_file(COG_ID, communes_regex, COG_MIN_YEAR)
 
     if not year:
@@ -178,6 +178,8 @@ def import_communes_from_cog(year):
 
     if year == 2019:
         csv_filename = "communes-01012019.csv"
+    elif year == 2021:
+        csv_filename = "commune2021.csv"
     else:
         csv_filename = f"communes{year}.csv"
 
