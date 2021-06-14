@@ -5,7 +5,6 @@ from io import BytesIO, TextIOWrapper
 
 
 def parse_csv_from_distant_zip(zip_url, csv_name, column_names, typecheck=False):
-
     print(f"🗜️   Parsing archive {zip_url}")
     zip_name = requests.get(zip_url).content
     with ZipFile(BytesIO(zip_name)) as zip_file:
@@ -13,8 +12,8 @@ def parse_csv_from_distant_zip(zip_url, csv_name, column_names, typecheck=False)
             reader = csv.DictReader(TextIOWrapper(csv_file, encoding="utf-8-sig"))
             entries = []
             if typecheck:
-                tc_col = typecheck[0]
-                tc_val = typecheck[1]
+                tc_col = typecheck["column"]
+                tc_val = typecheck["value"]
 
             for row in reader:
                 if typecheck:
