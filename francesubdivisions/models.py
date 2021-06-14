@@ -86,6 +86,10 @@ class CollectivityModel(TimeStampModel):
     def create_slug(self):
         self.slug = slugify(self.name)
 
+    def save(self, *args, **kwargs):
+        self.create_slug()
+        return super().save(*args, **kwargs)
+
 
 class Region(CollectivityModel):
     """
@@ -113,10 +117,6 @@ class Region(CollectivityModel):
 
     def __str__(self):
         return self.name
-
-    def save(self, *args, **kwargs):
-        self.create_slug()
-        return super().save(*args, **kwargs)
 
     def subdivisions_count(self):
         return {
@@ -155,9 +155,6 @@ class Departement(CollectivityModel):
 
     def __str__(self):
         return f"{self.insee} - {self.name}"
-
-    def create_slug(self):
-        self.slug = slugify(self.name)
 
     def list_epcis(self) -> QuerySet:
         epci_ids = list(
@@ -198,7 +195,7 @@ class Epci(CollectivityModel):
         return self.name
 
     def create_slug(self):
-        self.slug = slugify(f"{self.name}-{self.siren}")
+        self.slug = slugify(f"{self.name}-{self.siren} - temp")
 
 
 class Commune(CollectivityModel):
@@ -227,10 +224,6 @@ class Commune(CollectivityModel):
 
     def create_slug(self):
         self.slug = slugify(f"{self.name}-{self.insee}")
-
-    def save(self, *args, **kwargs):
-        self.create_slug()
-        return super().save(*args, **kwargs)
 
 
 # France collectivities data models
