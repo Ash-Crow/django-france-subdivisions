@@ -131,9 +131,8 @@ def import_departements_from_cog(year):
         region = Region.objects.get(years=year_entry, insee=d["region"])
 
         entry, return_code = Departement.objects.get_or_create(
-            name=d["name"], insee=d["insee"]
+            name=d["name"], insee=d["insee"], region=region
         )
-        entry.region = region
         entry.save()
 
         if not year_entry in entry.years.all():
@@ -203,9 +202,8 @@ def import_communes_from_cog(year):
     for c in communes:
         dept = Departement.objects.get(years=year_entry, insee=c["dept"])
         entry, return_code = Commune.objects.get_or_create(
-            name=c["name"], insee=c["insee"]
+            name=c["name"], insee=c["insee"], departement=dept
         )
-        entry.departement = dept
         entry.save()
 
         if not year_entry in entry.years.all():
