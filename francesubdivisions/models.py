@@ -195,7 +195,7 @@ class Epci(CollectivityModel):
         return self.name
 
     def create_slug(self):
-        self.slug = slugify(f"{self.name}-{self.siren} - temp")
+        self.slug = slugify(f"{self.name}-{self.siren}")
 
 
 class Commune(CollectivityModel):
