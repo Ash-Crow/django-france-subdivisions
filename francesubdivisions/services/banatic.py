@@ -4,9 +4,11 @@ import requests
 from zipfile import ZipFile
 from io import BytesIO, StringIO
 import openpyxl_dictreader
+from datetime import datetime
 
 from francesubdivisions.models import Epci, Commune, DataYear, Metadata
-from francesubdivisions.services.datagouv import get_datagouv_file
+
+# from francesubdivisions.services.datagouv import get_datagouv_file
 
 BANATIC_ID = "5e1f20058b4c414d3f94460d"
 
@@ -35,7 +37,7 @@ def import_commune_data_from_banatic(year: int = 0) -> None:
         if not year:
             year = max(annual_files)
         year_entry, _year_return_code = DataYear.objects.get_or_create(year=year)
-        print(year_entry)
+        print(f"Importing data for year {year_entry}")
 
         with zip_file.open(annual_files[year]) as xlsx_file:
             reader = openpyxl_dictreader.DictReader(xlsx_file, "insee_siren")
@@ -56,7 +58,8 @@ def import_commune_row_from_banatic(row: dict, year_entry: DataYear):
                 f"Commune name {name} ({insee}) doesn't match with database entry {commune}"
             )
         commune.siren = row["siren"]
-        commune.population = row["ptot_2020"]
+        pop_col = f"ptot_{year_entry.year}"
+        commune.population = row[pop_col]
         commune.save()
     except:
         raise ValueError(f"Commune {name} ({insee}) not found")
@@ -66,6 +69,8 @@ def import_epci_data_from_banatic(year: int) -> None:
     # Imports the EPCIs and EPCI <=> communes relations
     # Communes must have been imported beforehand from COG
 
+    # The link to the file has not been updated on data.gouv.fr for some time, so providing direct link
+    """
     epci_regex = re.compile(
         r"Périmètre des EPCI à fiscalité propre - année (?P<year>\d{4})"
     )
@@ -74,27 +79,31 @@ def import_epci_data_from_banatic(year: int) -> None:
     if not year:
         year = max(epci_files)
 
-    print(epci_files)
+    epci_filename = epci_files[year]["url"]
+    """
+
+    epci_filename = "https://www.banatic.interieur.gouv.fr/V5/fichiers-en-telechargement/telecharger.php?zone=N&date=01/04/2021&format=E"
+    year = 2021
 
     year_entry, _year_return_code = DataYear.objects.get_or_create(year=year)
-
-    epci_filename = epci_files[year]["url"]
 
     print(f"🧮   Parsing spreadsheet {epci_filename}")
 
     # Despite its .xls extension, it is actually a tsv.
     tsv_bytes = requests.get(epci_filename).content
 
-    print(tsv_bytes)
-
     str_file = StringIO(tsv_bytes.decode("cp1252"), newline="\n")
 
     reader = csv.DictReader(str_file, delimiter="\t")
 
-    rows_number = len(list(reader))
+    list_reader = list(reader)
 
-    if rows_number:
-        for row in reader:
+    rows_count = len(list_reader)
+
+    if rows_count:
+        print(f"Importing {rows_count} entries.")
+
+        for row in list_reader:
             import_epci_row_from_banatic(row, year_entry)
 
         Metadata.objects.get_or_create(prop="banatic_epci_year", value=year)
@@ -134,3 +143,12 @@ def import_epci_row_from_banatic(row, year_entry):
     # Adds the membership data on the communes entries
     member_commune.epci = epci_entry
     member_commune.save()
+
+
+def first_day_of_current_quarter():
+    # Returns the
+    current_date = datetime.now()
+    first_day_of_quarter = datetime(
+        current_date.year, 3 * ((current_date.month - 1) // 3) + 1, 1
+    )
+    return first_day_of_quarter.strftime("%d/%m/%Y")
