@@ -13,7 +13,6 @@ from francesubdivisions.models import (
     RegionData,
 )
 
-from pprint import pprint
 
 COG_ID = "58c984b088ee386cdb1261f3"
 COG_MIN_YEAR = 2019
