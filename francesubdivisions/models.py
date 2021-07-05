@@ -5,6 +5,8 @@ from django.utils.text import slugify
 
 from francesubdivisions.services.django_admin import TimeStampModel
 from francesubdivisions.services.validators import (
+    validate_insee_region,
+    validate_insee_departement,
     validate_insee_commune,
     validate_siren,
 )
@@ -104,14 +106,18 @@ class Region(CollectivityModel):
 
     name = models.CharField("nom", max_length=100)
     years = models.ManyToManyField(DataYear, verbose_name="millésimes")
-    insee = models.CharField("identifiant Insee", max_length=2)
-    siren = models.CharField("numéro Siren", max_length=9, blank=True)
+    insee = models.CharField(
+        "identifiant Insee", max_length=2, validators=[validate_insee_region]
+    )
+    siren = models.CharField(
+        "numéro Siren", max_length=9, validators=[validate_siren], blank=True, null=True
+    )
     category = models.CharField(
         max_length=3,
         choices=RegionCategory.choices,
         null=True,
-        verbose_name="catégorie",
         blank=True,
+        verbose_name="catégorie",
     )
     slug = models.CharField(max_length=100, blank=True, default="")
 
@@ -144,14 +150,18 @@ class Departement(CollectivityModel):
     region = models.ForeignKey(
         "Region", on_delete=models.CASCADE, verbose_name="région", blank=True, null=True
     )
-    insee = models.CharField("identifiant Insee", max_length=3)
-    siren = models.CharField("numéro Siren", max_length=9, blank=True)
+    insee = models.CharField(
+        "identifiant Insee", max_length=3, validators=[validate_insee_departement]
+    )
+    siren = models.CharField(
+        "numéro Siren", max_length=9, validators=[validate_siren], blank=True, null=True
+    )
     category = models.CharField(
         max_length=5,
         choices=DepartementCategory.choices,
         null=True,
-        verbose_name="catégorie",
         blank=True,
+        verbose_name="catégorie",
     )
     slug = models.CharField(max_length=100, blank=True, default="")
 
@@ -194,7 +204,7 @@ class Epci(CollectivityModel):
         verbose_name="type d’EPCI",
         blank=True,
     )
-    siren = models.CharField("numéro Siren", max_length=9, blank=True)
+    siren = models.CharField("numéro Siren", max_length=9, validators=[validate_siren])
     slug = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
@@ -220,8 +230,12 @@ class Commune(CollectivityModel):
     epci = models.ForeignKey(
         "Epci", on_delete=models.CASCADE, null=True, verbose_name="EPCI", blank=True
     )
-    insee = models.CharField("identifiant Insee", max_length=5)
-    siren = models.CharField("numéro Siren", max_length=9, blank=True)
+    insee = models.CharField(
+        "identifiant Insee", max_length=5, validators=[validate_insee_commune]
+    )
+    siren = models.CharField(
+        "numéro Siren", max_length=9, validators=[validate_siren], blank=True
+    )
     population = models.IntegerField(null=True, blank=True)
     slug = models.CharField(max_length=100, blank=True, default="")
 

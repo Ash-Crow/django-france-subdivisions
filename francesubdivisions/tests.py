@@ -6,11 +6,12 @@ from django.core.exceptions import ValidationError
 from francesubdivisions.models import (
     Commune,
     Epci,
-    Metadata,
-    DataYear,
     DataSource,
-    Region,
+    DataYear,
     Departement,
+    Metadata,
+    Region,
+    RegionData,
 )
 
 
@@ -92,12 +93,23 @@ class RegionTestCase(TestCase):
         with self.assertRaises(ValidationError):
             Region.objects.create(insee=11, name="Test region")
 
-    def test_region_name_is_not_empty(self) -> None:
+    def test_region_cant_be_created_without_name(self) -> None:
         with self.assertRaises(ValidationError):
             Region.objects.create(insee=11, name="")
 
         with self.assertRaises(ValidationError):
             Region.objects.create(insee=11)
+
+    def test_region_cant_be_created_without_insee(self) -> None:
+        with self.assertRaises(ValidationError):
+            Region.objects.create(name="Test region")
+
+    def test_region_cant_be_created_with_invalid_insee(self) -> None:
+        with self.assertRaises(ValidationError):
+            Region.objects.create(name="Test region", insee="1")
+
+        with self.assertRaises(ValidationError):
+            Region.objects.create(name="Test region", insee="1A")
 
     def test_region_has_departements(self) -> None:
         test_region = Region.objects.get(insee=11)
@@ -108,6 +120,12 @@ class RegionTestCase(TestCase):
         test_region = Region.objects.get(insee=11)
 
         self.assertEqual(test_region.subdivisions_count()["communes"], 3)
+
+    def test_region_cant_have_invalid_siren(self) -> None:
+        with self.assertRaises(ValidationError):
+            test_region = Region.objects.get(insee=11)
+            test_region.siren = "42"
+            test_region.save()
 
 
 class DepartementTestCase(TestCase):
@@ -124,9 +142,9 @@ class DepartementTestCase(TestCase):
         test_departement.years.add(year1, year2)
         test_departement.save()
 
-        epci1 = Epci.objects.create(name="EPCI 1")
+        epci1 = Epci.objects.create(name="EPCI 1", siren="200068989")
 
-        epci2 = Epci.objects.create(name="EPCI 2")
+        epci2 = Epci.objects.create(name="EPCI 2", siren="200068989")
 
         Commune.objects.create(
             name="Commune 11", insee="01001", departement=test_departement, epci=epci1
@@ -145,12 +163,26 @@ class DepartementTestCase(TestCase):
             test_item.years.values_list("year", flat=True), [2020, 2021], ordered=False
         )
 
-    def test_departement_name_is_not_empty(self) -> None:
+    def test_departement_cant_be_created_without_name(self) -> None:
         with self.assertRaises(ValidationError):
             Departement.objects.create(insee="02", name="")
 
         with self.assertRaises(ValidationError):
             Departement.objects.create(insee="03")
+
+    def test_departement_cant_be_created_without_insee(self) -> None:
+        with self.assertRaises(ValidationError):
+            Departement.objects.create(name="Test departement")
+
+    def test_departement_cant_be_created_with_invalid_insee(self) -> None:
+        with self.assertRaises(ValidationError):
+            Departement.objects.create(name="Test departement", insee="1")
+
+        with self.assertRaises(ValidationError):
+            Departement.objects.create(name="Test departement", insee="20")
+
+        with self.assertRaises(ValidationError):
+            Departement.objects.create(name="Test departement", insee="113")
 
     def test_departement_has_communes(self) -> None:
         test_item = Departement.objects.get(insee="01")
@@ -160,3 +192,113 @@ class DepartementTestCase(TestCase):
     def test_departement_has_epcis(self) -> None:
         test_item = Departement.objects.get(insee="01")
         self.assertEqual(test_item.list_epcis().count(), 2)
+
+    def test_departement_cant_have_invalid_siren(self) -> None:
+        with self.assertRaises(ValidationError):
+            test_item = Departement.objects.get(insee="01")
+            test_item.siren = "42"
+            test_item.save()
+
+
+class EpciTestCase(TestCase):
+    def setUp(self) -> None:
+        year1 = DataYear.objects.create(year=2020)
+        year2 = DataYear.objects.create(year=2021)
+
+        test_epci = Epci.objects.create(name="Test EPCI", siren="200068989")
+        test_epci.years.add(year1, year2)
+        test_epci.save()
+
+        dept1 = Departement.objects.create(name="dept 1", insee="01")
+        dept2 = Departement.objects.create(name="dept 2", insee="01")
+
+        Commune.objects.create(
+            name="Commune 11", insee="01001", departement=dept1, epci=test_epci
+        )
+        Commune.objects.create(
+            name="Commune 12", insee="01002", departement=dept1, epci=test_epci
+        )
+        Commune.objects.create(
+            name="Commune 21", insee="02001", departement=dept2, epci=test_epci
+        )
+
+    def test_epci_is_created(self) -> None:
+        test_item = Epci.objects.get(siren="200068989")
+        self.assertEqual(test_item.name, "Test EPCI")
+
+    def test_epci_cant_be_created_without_name(self) -> None:
+        with self.assertRaises(ValidationError):
+            Epci.objects.create(siren="200068989")
+
+    def test_epci_cant_be_created_without_siren(self) -> None:
+        with self.assertRaises(ValidationError):
+            Epci.objects.create(name="Test EPCI")
+
+    def test_epci_cant_be_created_with_invalid_siren(self) -> None:
+        with self.assertRaises(ValidationError):
+            Epci.objects.create(name="Test EPCI", siren="42")
+
+    def test_epci_has_years(self) -> None:
+        test_item = Epci.objects.get(siren="200068989")
+        self.assertQuerysetEqual(
+            test_item.years.values_list("year", flat=True), [2020, 2021], ordered=False
+        )
+
+    def test_epci_has_communes(self) -> None:
+        test_item = Epci.objects.get(siren="200068989")
+
+        self.assertEqual(test_item.commune_set.count(), 3)
+
+
+class CommuneTestCase(TestCase):
+    def setUp(self) -> None:
+        year1 = DataYear.objects.create(year=2020)
+        year2 = DataYear.objects.create(year=2021)
+
+        epci = Epci.objects.create(name="Test EPCI", siren="200068989")
+
+        dept = Departement.objects.create(name="dept 1", insee="01")
+
+        test_item = Commune.objects.create(
+            name="Test commune", insee="01001", departement=dept, epci=epci
+        )
+        test_item.years.add(year1, year2)
+        test_item.save()
+
+    def test_commune_is_created(self) -> None:
+        test_item = Commune.objects.get(insee="01001")
+        self.assertEqual(test_item.name, "Test commune")
+
+    def test_commune_cant_be_created_without_name(self) -> None:
+        dept = Departement.objects.get(insee="01")
+
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(insee="01001", departement=dept)
+
+    def test_commune_cant_be_created_without_insee(self) -> None:
+        dept = Departement.objects.get(insee="01")
+
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(name="Test commune", departement=dept)
+
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(name="Test commune", insee="", departement=dept)
+
+    def test_commune_cant_be_created_with_invalid_insee(self) -> None:
+        dept = Departement.objects.get(insee="01")
+
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(name="Test commune", insee="1001", departement=dept)
+
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(name="Test commune", insee="2C001", departement=dept)
+
+    def test_commune_cant_be_created_without_departement(self) -> None:
+        with self.assertRaises(ValidationError):
+            Commune.objects.create(insee="01001")
+
+    def test_commune_cant_have_invalid_siren(self) -> None:
+        with self.assertRaises(ValidationError):
+            test_item = Commune.objects.get(insee="01001")
+            test_item.siren = "42"
+            test_item.save()
