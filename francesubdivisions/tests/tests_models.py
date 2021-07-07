@@ -1,14 +1,16 @@
-from django import test
 from django.test import TestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 
 from francesubdivisions.models import (
     Commune,
+    CommuneData,
+    DepartementData,
     Epci,
     DataSource,
     DataYear,
     Departement,
+    EpciData,
     Metadata,
     Region,
     RegionData,
@@ -302,3 +304,162 @@ class CommuneTestCase(TestCase):
             test_item = Commune.objects.get(insee="01001")
             test_item.siren = "42"
             test_item.save()
+
+
+class RegionDataTestCase(TestCase):
+    def setUp(self) -> None:
+        region = Region.objects.create(insee="11", name="Test region")
+        year = DataYear.objects.create(year=2020)
+        source = DataSource.objects.create(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        RegionData.objects.create(
+            region=region,
+            year=year,
+            datacode="property",
+            value="Test data item",
+            source=source,
+        )
+
+    def test_region_data_is_created(self) -> None:
+        test_item = RegionData.objects.get(
+            region__insee="11", year__year=2020, datacode="property"
+        )
+        self.assertEqual(test_item.value, "Test data item")
+
+    def test_region_data_is_unique_per_year(self) -> None:
+        region = Region.objects.get(insee="11", name="Test region")
+        year = DataYear.objects.get(year=2020)
+        source = DataSource.objects.get(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        with self.assertRaises(IntegrityError):
+            RegionData.objects.create(
+                region=region,
+                year=year,
+                datacode="property",
+                value="Test data duplicate",
+                source=source,
+            )
+
+
+class DepartementDataTestCase(TestCase):
+    def setUp(self) -> None:
+        dept = Departement.objects.create(insee="11", name="Test departement")
+        year = DataYear.objects.create(year=2020)
+        source = DataSource.objects.create(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        DepartementData.objects.create(
+            departement=dept,
+            year=year,
+            datacode="property",
+            value="Test data item",
+            source=source,
+        )
+
+    def test_departement_data_is_created(self) -> None:
+        test_item = DepartementData.objects.get(
+            departement__insee="11", year__year=2020, datacode="property"
+        )
+        self.assertEqual(test_item.value, "Test data item")
+
+    def test_departement_data_is_unique_per_year(self) -> None:
+        dept = Departement.objects.get(insee="11")
+        year = DataYear.objects.get(year=2020)
+        source = DataSource.objects.get(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        with self.assertRaises(IntegrityError):
+            DepartementData.objects.create(
+                departement=dept,
+                year=year,
+                datacode="property",
+                value="Test data duplicate",
+                source=source,
+            )
+
+
+class EpciDataTestCase(TestCase):
+    def setUp(self) -> None:
+        epci = Epci.objects.create(name="Test EPCI", siren="200068989")
+        year = DataYear.objects.create(year=2020)
+        source = DataSource.objects.create(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        EpciData.objects.create(
+            epci=epci,
+            year=year,
+            datacode="property",
+            value="Test data item",
+            source=source,
+        )
+
+    def test_epci_data_is_created(self) -> None:
+        test_item = EpciData.objects.get(
+            epci__siren="200068989", year__year=2020, datacode="property"
+        )
+        self.assertEqual(test_item.value, "Test data item")
+
+    def test_epci_data_is_unique_per_year(self) -> None:
+        epci = Epci.objects.get(siren="200068989")
+        year = DataYear.objects.get(year=2020)
+        source = DataSource.objects.get(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        with self.assertRaises(IntegrityError):
+            EpciData.objects.create(
+                epci=epci,
+                year=year,
+                datacode="property",
+                value="Test data duplicate",
+                source=source,
+            )
+
+
+class DepartementDataTestCase(TestCase):
+    def setUp(self) -> None:
+        dept = Departement.objects.create(insee="11", name="Test departement")
+        year = DataYear.objects.create(year=2020)
+        source = DataSource.objects.create(
+            title="Test title", url="http://test-url.com", year=year
+        )
+        commune = Commune.objects.create(
+            name="Commune 11", insee="01001", departement=dept
+        )
+
+        CommuneData.objects.create(
+            commune=commune,
+            year=year,
+            datacode="property",
+            value="Test data item",
+            source=source,
+        )
+
+    def test_commune_data_is_created(self) -> None:
+        test_item = CommuneData.objects.get(
+            commune__insee="01001", year__year=2020, datacode="property"
+        )
+        self.assertEqual(test_item.value, "Test data item")
+
+    def test_commune_data_is_unique_per_year(self) -> None:
+        commune = Commune.objects.get(insee="01001")
+        year = DataYear.objects.get(year=2020)
+        source = DataSource.objects.get(
+            title="Test title", url="http://test-url.com", year=year
+        )
+
+        with self.assertRaises(IntegrityError):
+            CommuneData.objects.create(
+                commune=commune,
+                year=year,
+                datacode="property",
+                value="Test data duplicate",
+                source=source,
+            )
