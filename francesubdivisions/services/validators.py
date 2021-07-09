@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from stdnum.exceptions import InvalidChecksum, InvalidFormat, InvalidLength
 from stdnum.fr import siren
 
-# Validators
+
 validate_insee_region = RegexValidator(r"^\d\d$")
 validate_insee_departement = RegexValidator(
     r"^([0-1]\d|2[AB1-9]|[3-8]\d|9[0-5]|97[12346])$"
@@ -17,6 +17,6 @@ def validate_siren(value):
         siren.validate(value)
     except (InvalidChecksum, InvalidFormat, InvalidLength):
         raise ValidationError(
-            _("%(value)s is not an valid siren id"),
+            _("%(value)s is not a valid siren id"),
             params={"value": value},
         )
