@@ -9,7 +9,11 @@ validate_insee_region = RegexValidator(r"^\d\d$")
 validate_insee_departement = RegexValidator(
     r"^([0-1]\d|2[AB1-9]|[3-8]\d|9[0-5]|97[12346])$"
 )
-validate_insee_commune = RegexValidator(r"^\d[0-9AB][0-9P]\d\d$")
+validate_insee_commune = RegexValidator(
+    r"^([0-1]\d{4}|2[AB1-9]\d{3}|[3-8]\d{4}|9[0-5]\d{3}|97[12346]\d{2})$"
+)
+# Departement number has to be valid, but for the following digits,
+# only their count is checked, not if the code actually exists
 
 
 def validate_siren(value):
