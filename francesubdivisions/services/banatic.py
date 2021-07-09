@@ -5,8 +5,11 @@ from zipfile import ZipFile
 from io import BytesIO, StringIO
 import openpyxl_dictreader
 from datetime import datetime
+from typing import Pattern
 
 from francesubdivisions.models import Epci, Commune, DataYear, Metadata
+
+from pprint import pprint
 
 # from francesubdivisions.services.datagouv import get_datagouv_file
 
@@ -23,16 +26,8 @@ def import_commune_data_from_banatic(year: int = 0) -> None:
     zip_name = requests.get(zip_url).content
 
     with ZipFile(BytesIO(zip_name)) as zip_file:
-        files_in_zip = zip_file.namelist()
-        annual_files = {}
         title_regex = re.compile(r"Banatic_SirenInsee(?P<year>\d{4})\.xlsx")
-
-        for f in files_in_zip:
-            m = title_regex.match(f)
-            if m:
-                matched_year = int(m.group("year"))
-                if matched_year >= 2014:
-                    annual_files[matched_year] = f
+        annual_files = match_filenames_in_zip(zip_file, title_regex, starting_year=2014)
 
         if not year:
             year = max(annual_files)
@@ -42,15 +37,15 @@ def import_commune_data_from_banatic(year: int = 0) -> None:
         with zip_file.open(annual_files[year]) as xlsx_file:
             reader = openpyxl_dictreader.DictReader(xlsx_file, "insee_siren")
             for row in reader:
+                print(f"Importing row data for {row['nom_com']} ({row['insee']})")
                 import_commune_row_from_banatic(row, year_entry)
 
         Metadata.objects.get_or_create(prop="banatic_communes_year", value=year)
 
 
-def import_commune_row_from_banatic(row: dict, year_entry: DataYear):
+def import_commune_row_from_banatic(row: dict, year_entry: DataYear) -> None:
     name = row["nom_com"]
     insee = row["insee"]
-    print(name, insee)
     try:
         commune = Commune.objects.get(years=year_entry, insee=insee)
         if commune.name != name:
@@ -91,9 +86,7 @@ def import_epci_data_from_banatic(year: int) -> None:
 
     # Despite its .xls extension, it is actually a tsv.
     tsv_bytes = requests.get(epci_filename).content
-
     str_file = StringIO(tsv_bytes.decode("cp1252"), newline="\n")
-
     reader = csv.DictReader(str_file, delimiter="\t")
 
     list_reader = list(reader)
@@ -104,14 +97,14 @@ def import_epci_data_from_banatic(year: int) -> None:
         print(f"Importing {rows_count} entries.")
 
         for row in list_reader:
-            import_epci_row_from_banatic(row, year_entry)
+            print(import_epci_row_from_banatic(row, year_entry))
 
         Metadata.objects.get_or_create(prop="banatic_epci_year", value=year)
     else:
         raise ValueError("The spreadsheet is empty")
 
 
-def import_epci_row_from_banatic(row, year_entry):
+def import_epci_row_from_banatic(row, year_entry) -> str:
     epci_name = row["Nom du groupement"]
     epci_type = row["Nature juridique"]
     epci_siren = row["N° SIREN"]
@@ -134,21 +127,39 @@ def import_epci_row_from_banatic(row, year_entry):
     epci_entry.years.add(year_entry)
 
     if return_code:
-        print(f"EPCI {epci_entry} created.")
+        return_message = f"EPCI {epci_entry} created."
     elif new_year:
-        print(f"EPCI {epci_entry} already in database, updated year.")
+        return_message = f"EPCI {epci_entry} already in database, updated year."
     else:
-        print(f"EPCI {epci_entry} already in database, skipped.")
+        return_message = f"EPCI {epci_entry} already in database, skipped."
 
     # Adds the membership data on the communes entries
     member_commune.epci = epci_entry
     member_commune.save()
 
+    return return_message
 
-def first_day_of_current_quarter():
-    # Returns the
-    current_date = datetime.now()
-    first_day_of_quarter = datetime(
-        current_date.year, 3 * ((current_date.month - 1) // 3) + 1, 1
-    )
-    return first_day_of_quarter.strftime("%d/%m/%Y")
+
+def first_day_of_quarter(dt: datetime = None, format: str = "%Y-%m-%d") -> str:
+    # Returns the first day of the quarter the provided date belongs to
+    # If no date is specified, use the current one
+    if dt is None:
+        dt = datetime.now()
+    first_day_of_quarter = datetime(dt.year, 3 * ((dt.month - 1) // 3) + 1, 1)
+    return first_day_of_quarter.strftime(format)
+
+
+def match_filenames_in_zip(
+    zip_file: ZipFile, title_regex: Pattern[str], starting_year: int = 0
+) -> dict:
+    files_in_zip = zip_file.namelist()
+    annual_files = {}
+
+    for f in files_in_zip:
+        m = title_regex.match(f)
+        if m:
+            matched_year = int(m.group("year"))
+            if matched_year >= starting_year:
+                annual_files[matched_year] = f
+
+    return annual_files
