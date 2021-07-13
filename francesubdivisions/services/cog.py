@@ -1,9 +1,13 @@
 import re
 
 from francesubdivisions.services.datagouv import get_datagouv_file
-from francesubdivisions.services.utils import parse_csv_from_distant_zip
+from francesubdivisions.services.utils import (
+    get_zip_from_url,
+    parse_csv_from_distant_zip,
+)
 from francesubdivisions.models import (
     Commune,
+    CommuneData,
     DataSource,
     Departement,
     DepartementData,
@@ -39,53 +43,69 @@ def import_regions_from_cog(year: int = 0) -> dict:
             "insee": "REG",
             "name": "LIBELLE",
             "seat_insee": "CHEFLIEU",
+            "tncc": "TNCC",
+            "nccenr": "NCCENR",
         }
     else:
         column_names = {
             "insee": "reg",
             "name": "libelle",
             "seat_insee": "cheflieu",
+            "tncc": "tncc",
+            "nccenr": "nccenr",
         }
 
+    print(f"🗜️   Parsing archive {import_region_file['url']}")
     regions = parse_csv_from_distant_zip(
         import_region_file["url"],
+        get_zip_from_url,
         f"region{year}.csv",
         column_names,
     )
 
-    for r in regions:
-        # Create or update region item
-        entry, return_code = Region.objects.get_or_create(
-            name=r["name"], insee=r["insee"]
-        )
-        entry.save()
-        if not year_entry in entry.years.all():
-            new_year = True
-        else:
-            new_year = False
-        entry.years.add(year_entry)
-
-        if return_code:
-            print(f"Région {entry} created.")
-        elif new_year:
-            print(f"Région {entry} already in database, updated year.")
-        else:
-            print(f"Région {entry} already in database, skipped.")
-
-        # Import metadata
-        seat_metadata, _seat_md_return_code = RegionData.objects.get_or_create(
-            region=entry,
-            year=year_entry,
-            datacode="seat_insee",
-            datatype="string",
-            value=r["seat_insee"],
-            source=source_entry,
-        )
-        seat_metadata.save()
+    for region in regions:
+        print(import_region_from_cog(region, year_entry, source_entry))
 
     Metadata.objects.get_or_create(prop="cog_regions_year", value=year)
 
     return {"year_entry": year_entry}
+
+
+def import_region_from_cog(
+    region: dict, year_entry: DataYear, source_entry: DataSource
+) -> str:
+    # Create or update region item
+    entry, return_code = Region.objects.get_or_create(
+        name=region["name"], insee=region["insee"]
+    )
+    entry.save()
+    if not year_entry in entry.years.all():
+        new_year = True
+    else:
+        new_year = False
+    entry.years.add(year_entry)
+
+    if return_code:
+        return_message = f"Région {entry} created."
+    elif new_year:
+        return_message = f"Région {entry} already in database, updated year."
+    else:
+        return_message = f"Région {entry} already in database, skipped."
+
+    # Import metadata
+    metadata_keys = ["seat_insee", "tncc", "nccenr"]
+    for md_key in metadata_keys:
+        metadata_entry, _md_entry_return_code = RegionData.objects.get_or_create(
+            region=entry,
+            year=year_entry,
+            datacode=md_key,
+            datatype="string",
+            value=region[md_key],
+            source=source_entry,
+        )
+        metadata_entry.save()
+
+    return return_message
 
 
 def import_departements_from_cog(year):
@@ -110,6 +130,8 @@ def import_departements_from_cog(year):
             "name": "LIBELLE",
             "region": "REG",
             "seat_insee": "CHEFLIEU",
+            "tncc": "TNCC",
+            "nccenr": "NCCENR",
         }
     else:
         column_names = {
@@ -117,50 +139,63 @@ def import_departements_from_cog(year):
             "name": "libelle",
             "region": "reg",
             "seat_insee": "cheflieu",
+            "tncc": "tncc",
+            "nccenr": "nccenr",
         }
 
-    print(import_dept_file["url"])
+    print(f"🗜️   Parsing archive {import_dept_file['url']}")
     depts = parse_csv_from_distant_zip(
         import_dept_file["url"],
+        get_zip_from_url,
         f"departement{year}.csv",
         column_names,
     )
 
-    for d in depts:
-        region = Region.objects.get(years=year_entry, insee=d["region"])
-
-        entry, return_code = Departement.objects.get_or_create(
-            name=d["name"], insee=d["insee"], region=region
-        )
-        entry.save()
-
-        if not year_entry in entry.years.all():
-            new_year = True
-        else:
-            new_year = False
-        entry.years.add(year_entry)
-
-        if return_code:
-            print(f"Département {entry} created.")
-        elif new_year:
-            print(f"Département {entry} already in database, updated year.")
-        else:
-            print(f"Département {entry} already in database, skipped.")
-
-        # Import metadata
-        seat_metadata, _seat_md_return_code = DepartementData.objects.get_or_create(
-            departement=entry,
-            year=year_entry,
-            datacode="seat_insee",
-            datatype="string",
-            value=d["seat_insee"],
-            source=source_entry,
-        )
-        seat_metadata.save()
+    for dept in depts:
+        print(import_departement_from_cog(dept, year_entry, source_entry))
 
     Metadata.objects.get_or_create(prop="cog_depts_year", value=year)
 
     return {"year_entry": year_entry}
+
+
+def import_departement_from_cog(
+    dept: dict, year_entry: DataYear, source_entry: DataSource
+) -> str:
+    region = Region.objects.get(years=year_entry, insee=dept["region"])
+
+    entry, return_code = Departement.objects.get_or_create(
+        name=dept["name"], insee=dept["insee"], region=region
+    )
+    entry.save()
+
+    if not year_entry in entry.years.all():
+        new_year = True
+    else:
+        new_year = False
+    entry.years.add(year_entry)
+
+    if return_code:
+        return_message = f"Département {entry} created."
+    elif new_year:
+        return_message = f"Département {entry} already in database, updated year."
+    else:
+        return_message = f"Département {entry} already in database, skipped."
+
+    # Import metadata
+    metadata_keys = ["seat_insee", "tncc", "nccenr"]
+    for md_key in metadata_keys:
+        metadata_entry, _md_entry_return_code = DepartementData.objects.get_or_create(
+            departement=entry,
+            year=year_entry,
+            datacode=md_key,
+            datatype="string",
+            value=dept[md_key],
+            source=source_entry,
+        )
+    metadata_entry.save()
+
+    return return_message
 
 
 def import_communes_from_cog(year):
@@ -188,36 +223,74 @@ def import_communes_from_cog(year):
     )
 
     if year >= 2021:
-        column_names = {"insee": "COM", "name": "LIBELLE", "dept": "DEP"}
+        column_names = {
+            "insee": "COM",
+            "name": "LIBELLE",
+            "dept": "DEP",
+            "tncc": "TNCC",
+            "nccenr": "NCCENR",
+        }
         typecheck = {"column": "TYPECOM", "value": "COM"}
     else:
-        column_names = {"insee": "com", "name": "libelle", "dept": "dep"}
+        column_names = {
+            "insee": "com",
+            "name": "libelle",
+            "dept": "dep",
+            "tncc": "tncc",
+            "nccenr": "nccenr",
+        }
         typecheck = {"column": "typecom", "value": "COM"}
 
+    print(f"🗜️   Parsing archive {import_communes_file['url']}")
     communes = parse_csv_from_distant_zip(
-        import_communes_file["url"], csv_filename, column_names, typecheck=typecheck
+        import_communes_file["url"],
+        get_zip_from_url,
+        csv_filename,
+        column_names,
+        typecheck=typecheck,
     )
 
-    for c in communes:
-        dept = Departement.objects.get(years=year_entry, insee=c["dept"])
-        entry, return_code = Commune.objects.get_or_create(
-            name=c["name"], insee=c["insee"], departement=dept
-        )
-        entry.save()
-
-        if not year_entry in entry.years.all():
-            new_year = True
-        else:
-            new_year = False
-        entry.years.add(year_entry)
-
-        if return_code:
-            print(f"Commune {entry} created.")
-        elif new_year:
-            print(f"Commune {entry} already in database, updated year.")
-        else:
-            print(f"Commune {entry} already in database, skipped.")
+    for commune in communes:
+        print(import_commune_from_cog(commune, year_entry, source_entry))
 
     md_entry, md_return_code = Metadata.objects.get_or_create(
         prop="cog_communes_year", value=year
     )
+
+
+def import_commune_from_cog(
+    commune: dict, year_entry: DataYear, source_entry: DataSource
+) -> str:
+    dept = Departement.objects.get(years=year_entry, insee=commune["dept"])
+    entry, return_code = Commune.objects.get_or_create(
+        name=commune["name"], insee=commune["insee"], departement=dept
+    )
+    entry.save()
+
+    if not year_entry in entry.years.all():
+        new_year = True
+    else:
+        new_year = False
+    entry.years.add(year_entry)
+
+    if return_code:
+        return_message = f"Commune {entry} created."
+    elif new_year:
+        return_message = f"Commune {entry} already in database, updated year."
+    else:
+        return_message = f"Commune {entry} already in database, skipped."
+
+    # Import metadata
+    metadata_keys = ["tncc", "nccenr"]
+    for md_key in metadata_keys:
+        metadata_entry, _md_entry_return_code = CommuneData.objects.get_or_create(
+            commune=entry,
+            year=year_entry,
+            datacode=md_key,
+            datatype="string",
+            value=commune[md_key],
+            source=source_entry,
+        )
+    metadata_entry.save()
+
+    return return_message
